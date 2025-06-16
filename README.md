@@ -1,3 +1,4 @@
+
 # Gratia — Food Donation Management Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -86,3 +87,101 @@ Infrastructure provisioning is automated using Terraform, allowing easy environm
 ```bash
 git clone https://github.com/AdityaWaradkar/Gratia.git
 cd Gratia
+````
+
+2. **Install backend dependencies**
+
+```bash
+cd backend
+npm install
+```
+
+3. **Install frontend dependencies**
+
+```bash
+cd ../frontend
+npm install
+```
+
+4. **Configure environment variables**
+
+Create `.env` files in backend and frontend folders with necessary configuration (database URL, API keys, etc).
+
+5. **Run locally**
+
+- Start PostgreSQL database (locally or via Docker).
+
+- Run backend server:
+
+```bash
+cd backend
+npm start
+```
+
+- Run frontend:
+
+```bash
+cd frontend
+npm start
+```
+
+***
+
+
+## Usage
+
+- Open the frontend app in your browser (`http://localhost:3000` by default).
+
+- Restaurants can register/login to list food donations.
+
+- NGOs can browse available donations filtered by location and claim them.
+
+- Use the messaging feature to coordinate pickups.
+
+***
+
+
+## API Documentation
+
+The backend exposes RESTful APIs to manage users, donations, claims, and messaging. You can find detailed API specs in the `/docs` folder or visit the live API documentation hosted via Swagger/OpenAPI (if set up).
+
+***
+
+
+## Contributing
+
+Contributions are welcome! Feel free to:
+
+- Report bugs or suggest features via GitHub Issues.
+
+- Fork the repository and submit pull requests.
+
+- Improve documentation or add tests.
+
+Please follow the code style and commit message conventions.
+
+***
+
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE]() file for details.
+
+***
+
+
+## Contact
+
+**Aditya Waradkar**
+
+- GitHub: [AdityaWaradkar](https://github.com/AdityaWaradkar)
+
+- LinkedIn: [linkedin.com/in/aditya-waradkar-9a03b92a5](https://www.linkedin.com/in/aditya-waradkar-9a03b92a5/)
+
+- Email: adityawaradkar1801@gmail.com
+
+***
+
+_Thank you for checking out Gratia! Together, we can reduce food waste and help those in need._
+
+
