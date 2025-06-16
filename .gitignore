@@ -1,0 +1,33 @@
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+
+# Environment
+.env
+*.env
+
+# Dependency folders (if any)
+node_modules/
+vendor/
+
+# Build & log files
+*.log
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+
+# Binary files
+*.exe
+*.out
+*.dll
+
+# Docker
+*.local
+docker-compose.override.yml
+
+# Secrets or tokens
+secrets/
