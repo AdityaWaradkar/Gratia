@@ -1,7 +1,7 @@
 {
   "version": 4,
   "terraform_version": "1.12.2",
-  "serial": 118,
+  "serial": 112,
   "lineage": "e20933fa-97f5-ce9a-8f4d-9ad8cd3ad173",
   "outputs": {
     "supabase_secret_name": {
@@ -17,6 +17,7 @@
       "provider": "provider[\"registry.terraform.io/hashicorp/helm\"]",
       "instances": [
         {
+          "status": "tainted",
           "schema_version": 1,
           "attributes": {
             "atomic": false,
@@ -39,13 +40,13 @@
               {
                 "app_version": "1.12.3",
                 "chart": "ingress-nginx",
-                "first_deployed": 1751878104,
-                "last_deployed": 1751878104,
+                "first_deployed": 1751877198,
+                "last_deployed": 1751877198,
                 "name": "nginx-ingress",
                 "namespace": "kube-system",
-                "notes": "The ingress-nginx controller has been installed.\nGet the application URL by running these commands:\n  export HTTP_NODE_PORT=$(kubectl get service --namespace kube-system nginx-ingress-ingress-nginx-controller --output jsonpath=\"{.spec.ports[0].nodePort}\")\n  export HTTPS_NODE_PORT=$(kubectl get service --namespace kube-system nginx-ingress-ingress-nginx-controller --output jsonpath=\"{.spec.ports[1].nodePort}\")\n  export NODE_IP=\"$(kubectl get nodes --output jsonpath=\"{.items[0].status.addresses[1].address}\")\"\n\n  echo \"Visit http://${NODE_IP}:${HTTP_NODE_PORT} to access your application via HTTP.\"\n  echo \"Visit https://${NODE_IP}:${HTTPS_NODE_PORT} to access your application via HTTPS.\"\n\nAn example Ingress that makes use of the controller:\n  apiVersion: networking.k8s.io/v1\n  kind: Ingress\n  metadata:\n    name: example\n    namespace: foo\n  spec:\n    ingressClassName: nginx\n    rules:\n      - host: www.example.com\n        http:\n          paths:\n            - pathType: Prefix\n              backend:\n                service:\n                  name: exampleService\n                  port:\n                    number: 80\n              path: /\n    # This section is only required if TLS is to be enabled for the Ingress\n    tls:\n      - hosts:\n        - www.example.com\n        secretName: example-tls\n\nIf TLS is enabled for the Ingress, a Secret containing the certificate and key must also be provided:\n\n  apiVersion: v1\n  kind: Secret\n  metadata:\n    name: example-tls\n    namespace: foo\n  data:\n    tls.crt: \u003cbase64 encoded cert\u003e\n    tls.key: \u003cbase64 encoded key\u003e\n  type: kubernetes.io/tls\n",
+                "notes": "The ingress-nginx controller has been installed.\nIt may take a few minutes for the load balancer IP to be available.\nYou can watch the status by running 'kubectl get service --namespace kube-system nginx-ingress-ingress-nginx-controller --output wide --watch'\n\nAn example Ingress that makes use of the controller:\n  apiVersion: networking.k8s.io/v1\n  kind: Ingress\n  metadata:\n    name: example\n    namespace: foo\n  spec:\n    ingressClassName: nginx\n    rules:\n      - host: www.example.com\n        http:\n          paths:\n            - pathType: Prefix\n              backend:\n                service:\n                  name: exampleService\n                  port:\n                    number: 80\n              path: /\n    # This section is only required if TLS is to be enabled for the Ingress\n    tls:\n      - hosts:\n        - www.example.com\n        secretName: example-tls\n\nIf TLS is enabled for the Ingress, a Secret containing the certificate and key must also be provided:\n\n  apiVersion: v1\n  kind: Secret\n  metadata:\n    name: example-tls\n    namespace: foo\n  data:\n    tls.crt: \u003cbase64 encoded cert\u003e\n    tls.key: \u003cbase64 encoded key\u003e\n  type: kubernetes.io/tls\n",
                 "revision": 1,
-                "values": "{\"controller\":{\"ingressClass\":\"nginx\",\"ingressClassResource\":{\"name\":\"nginx\"},\"publishService\":{\"enabled\":false},\"service\":{\"type\":\"NodePort\"}}}",
+                "values": "{}",
                 "version": "4.12.3"
               }
             ],
@@ -64,33 +65,12 @@
             "repository_username": null,
             "reset_values": false,
             "reuse_values": false,
-            "set": [
-              {
-                "name": "controller.ingressClass",
-                "type": "",
-                "value": "nginx"
-              },
-              {
-                "name": "controller.ingressClassResource.name",
-                "type": "",
-                "value": "nginx"
-              },
-              {
-                "name": "controller.publishService.enabled",
-                "type": "",
-                "value": "false"
-              },
-              {
-                "name": "controller.service.type",
-                "type": "",
-                "value": "NodePort"
-              }
-            ],
+            "set": [],
             "set_list": [],
             "set_sensitive": [],
             "skip_crds": false,
-            "status": "deployed",
-            "timeout": 600,
+            "status": "failed",
+            "timeout": 300,
             "upgrade_install": null,
             "values": null,
             "verify": false,
@@ -208,11 +188,11 @@
               {
                 "annotations": {},
                 "generate_name": "",
-                "generation": 2,
+                "generation": 1,
                 "labels": {},
                 "name": "auth-service",
                 "namespace": "auth",
-                "resource_version": "8985",
+                "resource_version": "6529",
                 "uid": "be15cdd9-1409-46d4-9cb1-9ba0aceb8465"
               }
             ],
@@ -331,7 +311,7 @@
                             "name": "auth",
                             "port": [
                               {
-                                "container_port": 8081,
+                                "container_port": 8080,
                                 "host_ip": "",
                                 "host_port": 0,
                                 "name": "",
@@ -539,7 +519,7 @@
                 "labels": {},
                 "name": "auth-service",
                 "namespace": "auth",
-                "resource_version": "8941",
+                "resource_version": "1991",
                 "uid": "df8bf5cc-22a5-4814-b3eb-cd50abb39231"
               }
             ],
@@ -569,7 +549,7 @@
                     "node_port": 0,
                     "port": 80,
                     "protocol": "TCP",
-                    "target_port": "8081"
+                    "target_port": "8080"
                   }
                 ],
                 "publish_not_ready_addresses": false,

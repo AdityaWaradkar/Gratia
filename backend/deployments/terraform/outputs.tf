@@ -1,11 +1,3 @@
-output "cluster_name" {
-  value = module.eks.cluster_name
-}
-
-output "cluster_endpoint" {
-  value = module.eks.cluster_endpoint
-}
-
-output "cluster_certificate_authority_data" {
-  value = module.eks.cluster_certificate_authority_data
+output "supabase_secret_name" {
+  value = kubernetes_secret.supabase_credentials.metadata[0].name
 }
