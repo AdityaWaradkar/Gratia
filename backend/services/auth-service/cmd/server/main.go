@@ -9,24 +9,22 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/joho/godotenv" // <-- import dotenv
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 
 	"github.com/adityawaradkar/gratia-auth/internal/config"
 	handler "github.com/adityawaradkar/gratia-auth/internal/handlers"
+	"github.com/adityawaradkar/gratia-auth/internal/middleware"
 	"github.com/adityawaradkar/gratia-auth/internal/repository"
 	"github.com/adityawaradkar/gratia-auth/internal/service"
-
 	_ "github.com/lib/pq"
 )
 
 func main() {
-	// Load .env file from current directory
 	if err := godotenv.Load(".env"); err != nil {
 		log.Println("No .env file found or failed to load")
 	}
 
-	// Load custom config from environment variables
 	cfg := config.LoadConfig()
 
 	// Connect to PostgreSQL database
@@ -36,16 +34,22 @@ func main() {
 	}
 	defer db.Close()
 
-	// Create repositories, services, handlers
 	userRepo := repository.NewUserRepository(db)
 	authSvc := service.NewAuthService(userRepo, cfg.JWTSecret)
 	authHandler := handler.NewAuthHandler(authSvc)
 
-	// Setup router
+	// Create rate limiter: 5 requests per minute burst 10, data expires after 5 minutes
+	rateLimiter := middleware.NewRateLimiter(5, 10, 5*time.Minute)
+
 	mux := http.NewServeMux()
+
+	// Protect /register and /login with rate limiter middleware
+	mux.Handle("/register", rateLimiter.Limit(http.HandlerFunc(authHandler.Register)))
+	mux.Handle("/login", rateLimiter.Limit(http.HandlerFunc(authHandler.Login)))
+
+	// Other auth routes without rate limiting
 	mux.Handle("/api/v1/auth/", http.StripPrefix("/api/v1/auth", authHandler.Routes()))
 
-	// Create server with CORS middleware
 	server := &http.Server{
 		Addr:         ":" + cfg.ServerPort,
 		Handler:      withCORS(mux),
@@ -54,7 +58,6 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Run server in goroutine
 	go func() {
 		fmt.Printf("auth-service is running on port %s\n", cfg.ServerPort)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -62,7 +65,6 @@ func main() {
 		}
 	}()
 
-	// Graceful shutdown on SIGINT/SIGTERM
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 	<-stop
@@ -78,7 +80,6 @@ func main() {
 	fmt.Println("Server gracefully stopped.")
 }
 
-// withCORS is middleware to allow CORS requests (for development/testing)
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")

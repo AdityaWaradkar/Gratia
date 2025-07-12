@@ -30,7 +30,19 @@ func NewAuthService(userRepo repository.UserRepository, jwtSecret string) *AuthS
 	}
 }
 
-// Register returns user ID on success
+func (s *AuthService) Secret() string {
+	return s.jwtSecret
+}
+
+func (s *AuthService) GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error) {
+	return s.userRepo.GetUserByID(ctx, userID)
+}
+
+func (s *AuthService) GenerateJWT(user *models.User, duration time.Duration) (string, error) {
+	return s.generateJWT(user, duration)
+}
+
+
 func (s *AuthService) Register(ctx context.Context, user *models.User, password string) (uuid.UUID, error) {
 	existingUser, _ := s.userRepo.GetUserByEmail(ctx, user.Email)
 	if existingUser != nil {

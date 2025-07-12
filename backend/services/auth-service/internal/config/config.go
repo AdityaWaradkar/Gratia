@@ -16,7 +16,6 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
-	// Explicitly load .env file from auth-service folder (relative path)
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Println("Warning: .env file not found in auth-service folder, reading from environment variables")
