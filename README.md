@@ -77,7 +77,7 @@ Built with modern DevOps practices and a microservices architecture, Gratia ensu
 | Backend          | Go (Golang)             |
 | Database         | PostgreSQL              |
 | Containerization | Docker                  |
-| Orchestration    | Kubernetes (Amazon EKS) |
+| Orchestration    | Kubernetes  |
 | Infrastructure   | Terraform               |
 | CI/CD            | GitHub Actions          |
 | Monitoring       | Prometheus, Grafana     |
