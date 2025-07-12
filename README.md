@@ -1,164 +1,198 @@
+***
+
 
 # Gratia — Food Donation Management Platform
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)]()
 
----
+***
+
 
 ## Table of Contents
 
 - [Project Overview](#project-overview)
+
 - [Features](#features)
+
 - [Tech Stack](#tech-stack)
+
 - [Architecture](#architecture)
+
 - [Installation](#installation)
+
 - [Usage](#usage)
+
 - [API Documentation](#api-documentation)
+
 - [Contributing](#contributing)
+
 - [License](#license)
+
 - [Contact](#contact)
 
----
+***
+
 
 ## Project Overview
 
-**Gratia** is a full-stack cloud-native web platform designed to facilitate food donations by connecting restaurants and catering services with NGOs. This platform aims to reduce food waste and help distribute surplus food efficiently to those in need.
+**Gratia** is a full-stack, cloud-native platform designed to efficiently connect restaurants and catering services with NGOs for the purpose of donating surplus food. It strives to minimize food waste and ensure excess food reaches those who need it most.
 
-Restaurants can list their excess food donations, and NGOs can browse, filter by location, and claim these donations on a first-come, first-served basis. The platform includes features like real-time location filtering, navigation via maps, and a messaging system to facilitate communication between donors and recipients.
+Restaurants can list their available surplus food, while NGOs can search, filter by location, and claim donations on a first-come, first-served basis. The platform offers real-time location filtering, interactive maps for easy navigation, and an integrated messaging system to streamline communication between donors and recipients.
 
-This project is built using modern DevOps practices including containerization, orchestration, and automated CI/CD pipelines to ensure reliability and scalability.
+Built with modern DevOps practices and a microservices architecture, Gratia ensures reliability, scalability, and maintainability by leveraging containerization, Kubernetes orchestration, infrastructure as code, and CI/CD automation.
 
----
+***
+
 
 ## Features
 
-- **Restaurant Portal:** List and manage surplus food donations.
-- **NGO Portal:** Browse and claim food donations with location-based filtering.
-- **Real-time Location Mapping:** Integrated maps to visualize donation and pickup locations.
-- **Messaging System:** Direct communication channel between restaurants and NGOs.
-- **Microservices Architecture:** Modular services for scalability and maintainability.
-- **Cloud-Native Deployment:** Docker containers orchestrated with Kubernetes (EKS).
-- **Infrastructure as Code:** Terraform scripts for infrastructure provisioning.
-- **CI/CD Automation:** GitHub Actions for build, test, and deployment pipelines.
-- **Monitoring & Alerts:** Prometheus and Grafana integration for observability.
-- **Database:** PostgreSQL for robust data storage and querying.
+- **Restaurant Portal:** Easily list and manage surplus food donations.
 
----
+- **NGO Portal:** Browse, filter by location, and claim available food donations.
+
+- **Real-time Location Mapping:** Interactive maps to visualize donation and pickup points.
+
+- **Messaging System:** Secure communication channel between restaurants and NGOs.
+
+- **Microservices Architecture:** Modular and scalable services for core functionalities.
+
+- **Cloud-Native Deployment:** Docker containers orchestrated via Kubernetes (EKS).
+
+- **Infrastructure as Code:** Provision cloud resources with Terraform scripts.
+
+- **CI/CD Automation:** Continuous integration and deployment using GitHub Actions.
+
+- **Monitoring & Observability:** Integrated Prometheus and Grafana dashboards.
+
+- **Robust Database:** PostgreSQL for reliable data storage and querying.
+
+***
+
 
 ## Tech Stack
 
-| Component             | Technology / Tool           |
-|-----------------------|----------------------------|
-| Frontend              | React.js (MERN stack)       |
-| Backend               | Node.js, Express.js         |
-| Database              | PostgreSQL                  |
-| Containerization      | Docker                     |
-| Orchestration         | Kubernetes (EKS)            |
-| Infrastructure        | Terraform                  |
-| CI/CD                 | GitHub Actions             |
-| Monitoring            | Prometheus, Grafana         |
-| Version Control       | Git, GitHub                |
+| Component        | Technology / Tool       |
+| ---------------- | ----------------------- |
+| Frontend         | React.js                |
+| Backend          | Go (Golang)             |
+| Database         | PostgreSQL              |
+| Containerization | Docker                  |
+| Orchestration    | Kubernetes (Amazon EKS) |
+| Infrastructure   | Terraform               |
+| CI/CD            | GitHub Actions          |
+| Monitoring       | Prometheus, Grafana     |
+| Version Control  | Git, GitHub             |
 
----
+***
+
 
 ## Architecture
 
-Gratia follows a microservices architecture where different functionalities such as user management, donation management, messaging, and notifications are handled by separate services communicating via REST APIs. The services run inside Docker containers deployed on Kubernetes managed by Amazon EKS, ensuring high availability and scalability.
+Gratia employs a **microservices architecture**, where discrete services manage user authentication, donation handling, messaging, and notifications. Each service runs inside Docker containers, deployed and managed with Kubernetes on AWS EKS for high availability and scalability.
 
-Infrastructure provisioning is automated using Terraform, allowing easy environment setup and management. Continuous integration and deployment pipelines ensure automated testing and smooth updates.
+Infrastructure provisioning is automated via Terraform, enabling seamless environment setup and maintenance. Automated CI/CD pipelines ensure robust testing and smooth deployments. Observability is achieved through Prometheus and Grafana integration, providing monitoring and alerting capabilities.
 
----
+***
+
 
 ## Installation
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/en/) v14 or above
+- [Go](https://golang.org/dl/) (for backend services)
+
+- [Node.js](https://nodejs.org/en/) v14+ (for frontend )
+
 - [Docker](https://www.docker.com/get-started)
+
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
+
 - [Terraform](https://www.terraform.io/downloads)
-- AWS CLI configured (for EKS)
-- PostgreSQL installed or access to managed PostgreSQL instance
+
+- AWS CLI configured with credentials (for EKS cluster)
+
+- PostgreSQL instance (local or managed)
+
 
 ### Setup Locally
 
 1. **Clone the repository**
 
-```bash
-git clone https://github.com/AdityaWaradkar/Gratia.git
-cd Gratia
-````
+   ```bash
+   git clone https://github.com/AdityaWaradkar/Gratia.git
+   cd Gratia
+   ```
 
 2. **Install backend dependencies**
 
-```bash
-cd backend
-npm install
-```
+   ```bash
+   cd backend
+   go mod download
+   ```
 
 3. **Install frontend dependencies**
 
-```bash
-cd ../frontend
-npm install
-```
+   ```bash
+   cd ../frontend
+   npm install
+   ```
 
 4. **Configure environment variables**
 
-Create `.env` files in backend and frontend folders with necessary configuration (database URL, API keys, etc).
+   Create `.env` files in both backend and frontend directories with necessary settings (database URLs, JWT secrets, API keys).
 
-5. **Run locally**
+5. **Start services**
 
-- Start PostgreSQL database (locally or via Docker).
+   - Start PostgreSQL locally or via Docker.
 
-- Run backend server:
+   - Run backend service(s):
 
-```bash
-cd backend
-npm start
-```
+     ```bash
+     cd backend/services/{service_you_want_to_run}
+     go run ./cmd/server/main.go
+     ```
 
-- Run frontend:
+   - Run frontend development server:
 
-```bash
-cd frontend
-npm start
-```
+     ```bash
+     cd ../frontend
+     npm start
+     ```
 
 ***
 
 
 ## Usage
 
-- Open the frontend app in your browser (`http://localhost:3000` by default).
+- Access the frontend app at `http://localhost:3000` (default).
 
-- Restaurants can register/login to list food donations.
+- Restaurants can register and log in to list surplus food donations.
 
-- NGOs can browse available donations filtered by location and claim them.
+- NGOs can browse and claim available donations, filtering by location.
 
-- Use the messaging feature to coordinate pickups.
+- Use the messaging system to coordinate donation pickups efficiently.
 
 ***
 
 
 ## API Documentation
 
-The backend exposes RESTful APIs to manage users, donations, claims, and messaging. You can find detailed API specs in the `/docs` folder or visit the live API documentation hosted via Swagger/OpenAPI (if set up).
+Comprehensive RESTful API specifications for all microservices are available inside the `/docs` folder. Swagger/OpenAPI documentation is generated and can be hosted or viewed locally for easy integration and testing.
 
 ***
 
 
 ## Contributing
 
-Contributions are welcome! Feel free to:
+Contributions, bug reports, and feature requests are welcome!
 
-- Report bugs or suggest features via GitHub Issues.
+- Open issues to discuss bugs or enhancements.
 
 - Fork the repository and submit pull requests.
 
-- Improve documentation or add tests.
+- Help improve documentation, tests, or code quality.
 
-Please follow the code style and commit message conventions.
+Please adhere to the coding style and commit message conventions.
 
 ***
 
@@ -174,14 +208,8 @@ This project is licensed under the MIT License — see the [LICENSE]() file for 
 
 **Aditya Waradkar**
 
-- GitHub: [AdityaWaradkar](https://github.com/AdityaWaradkar)
-
 - LinkedIn: [linkedin.com/in/aditya-waradkar-9a03b92a5](https://www.linkedin.com/in/aditya-waradkar-9a03b92a5/)
 
-- Email: adityawaradkar1801@gmail.com
+- Email: [adityawaradkar1801@gmail.co](mailto:adityawaradkar1801@gmail.com)m
 
 ***
-
-_Thank you for checking out Gratia! Together, we can reduce food waste and help those in need._
-
-
