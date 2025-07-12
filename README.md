@@ -1,5 +1,5 @@
 
-# Gratia — Food Donation Management Platform
+# Gratia — Seamless Food Donation Management Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
