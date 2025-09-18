@@ -3,6 +3,7 @@ module github.com/adityawaradkar/gratia/auth_service
 go 1.24.6
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/crypto v0.41.0

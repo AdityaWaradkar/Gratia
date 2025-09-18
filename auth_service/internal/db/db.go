@@ -4,38 +4,59 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
+	"time"
 
+	"github.com/adityawaradkar/gratia/auth_service/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/joho/godotenv"
 )
 
-var DB *pgxpool.Pool
+var DBPool *pgxpool.Pool
 
-func ConnectDB() {
-	// Load environment variables
-	err := godotenv.Load()
+// Connect initializes the Postgres connection pool
+func Connect(ctx context.Context) *pgxpool.Pool {
+	if DBPool != nil {
+		return DBPool
+	}
+
+	cfg, err := pgxpool.ParseConfig(config.GetDatabaseURL())
 	if err != nil {
-		log.Println("Warning: .env file not found, relying on environment variables")
+		log.Fatalf("Unable to parse DATABASE_URL: %v", err)
 	}
 
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		log.Fatal("DATABASE_URL is not set in environment")
-	}
+	// Optional: customize pool settings
+	cfg.MaxConns = 20
+	cfg.MinConns = 2
+	cfg.MaxConnLifetime = 30 * time.Minute
+	cfg.HealthCheckPeriod = 5 * time.Minute
 
-	// Connect to Neon Postgres
-	pool, err := pgxpool.New(context.Background(), dsn)
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		log.Fatal("Unable to create DB connection pool: ", err)
+		log.Fatalf("Unable to create connection pool: %v", err)
 	}
 
-	// Test connection
-	err = pool.Ping(context.Background())
-	if err != nil {
-		log.Fatal("Unable to connect to database: ", err)
+	// Test the connection
+	if err := pool.Ping(ctx); err != nil {
+		log.Fatalf("Unable to ping database: %v", err)
 	}
 
-	DB = pool
-	fmt.Println("✅ Successfully connected to Neon Postgres")
+	DBPool = pool
+	fmt.Println("Connected to Postgres successfully")
+	return DBPool
+}
+
+// Close closes the DB connection pool
+func Close() {
+	if DBPool != nil {
+		DBPool.Close()
+	}
+}
+
+// Optional: helper to run migrations
+func RunMigration(ctx context.Context, sql string) error {
+	if DBPool == nil {
+		return fmt.Errorf("DB pool not initialized")
+	}
+
+	_, err := DBPool.Exec(ctx, sql)
+	return err
 }
