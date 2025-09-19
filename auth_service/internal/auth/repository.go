@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,6 +21,10 @@ type RepositoryInterface interface {
 	RevokeRefreshToken(ctx context.Context, id string) error
 	SaveSession(ctx context.Context, s *Session) error
 	DeleteSessionByToken(ctx context.Context, refreshTokenID string) error
+	SavePasswordReset(ctx context.Context, pr *PasswordReset) error
+	StoreResetToken(ctx context.Context, userID, token string) error
+	FindByResetToken(ctx context.Context, token string) (*User, error)
+	ClearResetToken(ctx context.Context, userID string) error
 }
 
 // Repository handles database operations
@@ -194,4 +199,93 @@ func (r *Repository) DeleteSessionByToken(ctx context.Context, refreshTokenID st
 		return errors.New("session not found")
 	}
 	return nil
+}
+
+// ---------------- Password Reset ----------------
+
+func (r *Repository) SavePasswordReset(ctx context.Context, pr *PasswordReset) error {
+	query := `
+		INSERT INTO password_resets (user_id, token, expires_at, used, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id
+	`
+	return r.db.QueryRow(ctx, query,
+		pr.UserID,
+		pr.Token,
+		pr.ExpiresAt,
+		pr.Used,
+		pr.CreatedAt,
+	).Scan(&pr.ID)
+}
+
+// StoreResetToken inserts a new reset token, invalidates old tokens, and logs expiry
+func (r *Repository) StoreResetToken(ctx context.Context, userID, token string) error {
+	now := time.Now()
+	expiresAt := now.Add(1 * time.Hour) // token valid for 1 hour
+
+	// Invalidate previous unused tokens
+	cmdTag, err := r.db.Exec(ctx, `
+		UPDATE password_resets
+		SET used = true, updated_at = $2
+		WHERE user_id = $1 AND used = false
+	`, userID, now)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() > 0 {
+		log.Printf("ℹ️ Invalidated %d previous reset token(s) for user %s", cmdTag.RowsAffected(), userID)
+	}
+
+	// Insert the new token
+	query := `
+		INSERT INTO password_resets (user_id, token, expires_at, used, created_at, updated_at)
+		VALUES ($1, $2, $3, false, $4, $5)
+		RETURNING id, expires_at, used
+	`
+	var id string
+	var storedExpires time.Time
+	var used bool
+	err = r.db.QueryRow(ctx, query, userID, token, expiresAt, now, now).Scan(&id, &storedExpires, &used)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("✅ Created new reset token for user %s: %s (expires at %s, used=%v)", userID, token, storedExpires.Format(time.RFC3339), used)
+	return nil
+}
+
+// FindByResetToken retrieves a user by a valid, unused reset token and logs token status
+func (r *Repository) FindByResetToken(ctx context.Context, token string) (*User, error) {
+	query := `
+		SELECT u.id, u.email, u.password_hash, u.role, u.email_verified, u.created_at, u.updated_at
+		FROM users u
+		INNER JOIN password_resets pr ON pr.user_id = u.id
+		WHERE pr.token = $1 AND pr.used = false AND pr.expires_at > NOW()
+	`
+	user := &User{}
+	err := r.db.QueryRow(ctx, query, token).Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.Role,
+		&user.EmailVerified,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		log.Printf("❌ Failed to find user by reset token '%s': %v", token, err)
+		return nil, err
+	}
+	log.Printf("✅ Found user %s by reset token '%s'", user.ID, token)
+	return user, nil
+}
+
+func (r *Repository) ClearResetToken(ctx context.Context, userID string) error {
+	query := `
+		UPDATE password_resets
+		SET used = true, updated_at = $2
+		WHERE user_id = $1 AND used = false
+	`
+	_, err := r.db.Exec(ctx, query, userID, time.Now())
+	return err
 }

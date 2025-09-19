@@ -3,11 +3,13 @@ package auth
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"time"
 
 	"github.com/adityawaradkar/gratia/auth_service/internal/utils"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -222,4 +224,49 @@ func (s *Service) generateAccessToken(user *User) (string, error) {
 // GetUserByID fetches a user by ID
 func (s *Service) GetUserByID(ctx context.Context, userID string) (*User, error) {
 	return s.repo.GetUserByID(ctx, userID)
+}
+
+// GenerateResetToken creates a dummy reset token for testing
+func (s *Service) GenerateResetToken(ctx context.Context, email string) (string, error) {
+	user, err := s.repo.GetUserByEmail(ctx, email) // ✅ use GetUserByEmail, not FindByEmail
+	if err != nil || user == nil {
+		return "", errors.New("email not found")
+	}
+
+	// Generate a UUID as reset token
+	token := uuid.NewString()
+
+	// Store it in repo (for testing)
+	if err := s.repo.StoreResetToken(ctx, user.ID, token); err != nil {
+		return "", err
+	}
+
+	// Log for dev
+	log.Printf("📧 Password reset token for %s: %s", email, token)
+
+	return token, nil
+}
+
+// ResetPassword verifies token and updates password
+func (s *Service) ResetPassword(ctx context.Context, resetToken, newPassword string) error {
+	user, err := s.repo.FindByResetToken(ctx, resetToken)
+	if err != nil {
+		return errors.New("invalid or expired reset token")
+	}
+
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repo.UpdatePassword(ctx, user.ID, hashedPassword); err != nil {
+		return err
+	}
+
+	// Invalidate token
+	if err := s.repo.ClearResetToken(ctx, user.ID); err != nil {
+		return err
+	}
+
+	return nil
 }
