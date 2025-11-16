@@ -1,4 +1,4 @@
-package http
+package httpserver
 
 import (
 	"net/http"
@@ -7,20 +7,19 @@ import (
 	"github.com/adityawaradkar/gratia/auth_service/internal/middleware"
 )
 
-// RegisterRoutes sets up all routes for the auth service
 func RegisterRoutes(handler *auth.Handler) http.Handler {
 	mux := http.NewServeMux()
 
-	// Public routes
 	mux.HandleFunc("/auth/register", handler.RegisterUser)
 	mux.HandleFunc("/auth/login", handler.LoginUser)
 	mux.HandleFunc("/auth/refresh", handler.RefreshTokens)
 	mux.HandleFunc("/auth/logout", handler.Logout)
 	mux.HandleFunc("/auth/forgot-password", handler.ForgotPassword)
 	mux.HandleFunc("/auth/reset-password", handler.ResetPassword)
+	mux.HandleFunc("/auth/verify-email", handler.VerifyEmail)
+	mux.HandleFunc("/auth/validate", handler.ValidateTokenHandler)
 
-	// Protected routes
-	mux.Handle("/auth/me", middleware.AuthMiddleware(http.HandlerFunc(handler.GetCurrentUser)))
+	mux.Handle("/auth/me", middleware.Auth(http.HandlerFunc(handler.GetCurrentUser)))
 
 	return mux
 }

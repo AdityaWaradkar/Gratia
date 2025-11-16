@@ -10,97 +10,87 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Context keys for storing user info
 type contextKey string
 
 const (
-	ContextUserID    contextKey = "userID"
-	ContextUserEmail contextKey = "userEmail"
-	ContextUserRole  contextKey = "userRole"
+	UserIDKey    contextKey = "userID"
+	UserEmailKey contextKey = "userEmail"
+	UserRoleKey  contextKey = "userRole"
 )
 
-// JSONError represents a standard error response
-type JSONError struct {
+type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-// AuthMiddleware validates JWT access tokens
-func AuthMiddleware(next http.Handler) http.Handler {
+func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			writeError(w, "authorization header missing", http.StatusUnauthorized)
+		header := r.Header.Get("Authorization")
+		if header == "" {
+			writeJSONError(w, "authorization header missing", http.StatusUnauthorized)
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
+		parts := strings.Split(header, " ")
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			writeError(w, "invalid authorization header format", http.StatusUnauthorized)
+			writeJSONError(w, "invalid authorization header format", http.StatusUnauthorized)
 			return
 		}
 
-		tokenStr := parts[1]
+		tokenString := parts[1]
 
-		// Parse JWT token
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+			_, ok := t.Method.(*jwt.SigningMethodHMAC)
+			if !ok {
 				return nil, jwt.ErrTokenSignatureInvalid
 			}
 			return []byte(config.GetJWTSecret()), nil
 		})
+
 		if err != nil || !token.Valid {
-			writeError(w, "invalid or expired token", http.StatusUnauthorized)
+			writeJSONError(w, "invalid or expired token", http.StatusUnauthorized)
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			writeError(w, "invalid token claims", http.StatusUnauthorized)
+			writeJSONError(w, "invalid token claims", http.StatusUnauthorized)
 			return
 		}
 
-		userID, ok1 := claims["sub"].(string)
-		userEmail, ok2 := claims["email"].(string)
-		userRole, ok3 := claims["role"].(string)
-		if !ok1 || !ok2 || !ok3 {
-			writeError(w, "invalid token claims", http.StatusUnauthorized)
+		id, _ := claims["sub"].(string)
+		email, _ := claims["email"].(string)
+		role, _ := claims["role"].(string)
+
+		if id == "" || email == "" || role == "" {
+			writeJSONError(w, "invalid token claims", http.StatusUnauthorized)
 			return
 		}
 
-		// Store in request context
-		ctx := context.WithValue(r.Context(), ContextUserID, userID)
-		ctx = context.WithValue(ctx, ContextUserEmail, userEmail)
-		ctx = context.WithValue(ctx, ContextUserRole, userRole)
+		ctx := context.WithValue(r.Context(), UserIDKey, id)
+		ctx = context.WithValue(ctx, UserEmailKey, email)
+		ctx = context.WithValue(ctx, UserRoleKey, role)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-// Helper functions to retrieve user info from context
-func GetUserID(ctx context.Context) string {
-	if id, ok := ctx.Value(ContextUserID).(string); ok {
-		return id
-	}
-	return ""
+func UserID(ctx context.Context) string {
+	v, _ := ctx.Value(UserIDKey).(string)
+	return v
 }
 
-func GetUserEmail(ctx context.Context) string {
-	if email, ok := ctx.Value(ContextUserEmail).(string); ok {
-		return email
-	}
-	return ""
+func UserEmail(ctx context.Context) string {
+	v, _ := ctx.Value(UserEmailKey).(string)
+	return v
 }
 
-func GetUserRole(ctx context.Context) string {
-	if role, ok := ctx.Value(ContextUserRole).(string); ok {
-		return role
-	}
-	return ""
+func UserRole(ctx context.Context) string {
+	v, _ := ctx.Value(UserRoleKey).(string)
+	return v
 }
 
-// Utility to return JSON errors
-func writeError(w http.ResponseWriter, message string, status int) {
+func writeJSONError(w http.ResponseWriter, message string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(JSONError{Message: message})
+	json.NewEncoder(w).Encode(ErrorResponse{Message: message})
 }

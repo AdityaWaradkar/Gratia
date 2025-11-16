@@ -2,7 +2,6 @@ package auth
 
 import "time"
 
-// User represents a user account
 type User struct {
 	ID            string    `json:"id" db:"id"`
 	Email         string    `json:"email" db:"email"`
@@ -13,7 +12,6 @@ type User struct {
 	UpdatedAt     time.Time `json:"updatedAt" db:"updated_at"`
 }
 
-// RefreshToken represents a refresh token for session persistence
 type RefreshToken struct {
 	ID        string    `json:"id" db:"id"`
 	UserID    string    `json:"userId" db:"user_id"`
@@ -23,7 +21,6 @@ type RefreshToken struct {
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 }
 
-// Session tracks user logins across devices
 type Session struct {
 	ID             string    `json:"id" db:"id"`
 	UserID         string    `json:"userId" db:"user_id"`
@@ -34,7 +31,6 @@ type Session struct {
 	CreatedAt      time.Time `json:"createdAt" db:"created_at"`
 }
 
-// EmailVerification stores email confirmation tokens
 type EmailVerification struct {
 	ID        string    `json:"id" db:"id"`
 	UserID    string    `json:"userId" db:"user_id"`
@@ -44,7 +40,6 @@ type EmailVerification struct {
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 }
 
-// PasswordReset stores password reset tokens
 type PasswordReset struct {
 	ID        string    `json:"id" db:"id"`
 	UserID    string    `json:"userId" db:"user_id"`
@@ -55,7 +50,6 @@ type PasswordReset struct {
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 }
 
-// AuditLog stores security/audit events
 type AuditLog struct {
 	ID        string    `json:"id" db:"id"`
 	UserID    *string   `json:"userId,omitempty" db:"user_id"`

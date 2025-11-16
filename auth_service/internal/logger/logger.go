@@ -15,50 +15,41 @@ const (
 	ERROR LogLevel = "ERROR"
 )
 
-// Logger wraps standard log.Logger
 type Logger struct {
-	logger *log.Logger
+	writer *log.Logger
 }
 
-// New creates a new logger instance
 func New() *Logger {
 	return &Logger{
-		logger: log.New(os.Stdout, "", 0),
+		writer: log.New(os.Stdout, "", 0),
 	}
 }
 
-// logMessage prints a formatted log message with timestamp and level
-func (l *Logger) logMessage(level LogLevel, message string) {
-	timestamp := time.Now().Format(time.RFC3339)
-	l.logger.Printf("[%s] [%s] %s", timestamp, level, message)
+func (l *Logger) write(level LogLevel, message string) {
+	t := time.Now().Format(time.RFC3339)
+	l.writer.Printf("[%s] [%s] %s", t, level, message)
 }
 
-// Info logs an info-level message
-func (l *Logger) Info(msg string) {
-	l.logMessage(INFO, msg)
+func (l *Logger) Info(message string) {
+	l.write(INFO, message)
 }
 
-// Warn logs a warning-level message
-func (l *Logger) Warn(msg string) {
-	l.logMessage(WARN, msg)
+func (l *Logger) Warn(message string) {
+	l.write(WARN, message)
 }
 
-// Error logs an error-level message
-func (l *Logger) Error(msg string) {
-	l.logMessage(ERROR, msg)
+func (l *Logger) Error(message string) {
+	l.write(ERROR, message)
 }
 
-// Errorf logs a formatted error-level message
-func (l *Logger) Errorf(format string, args ...interface{}) {
-	l.Error(fmt.Sprintf(format, args...))
-}
-
-// Infof logs a formatted info-level message
 func (l *Logger) Infof(format string, args ...interface{}) {
 	l.Info(fmt.Sprintf(format, args...))
 }
 
-// Warnf logs a formatted warn-level message
 func (l *Logger) Warnf(format string, args ...interface{}) {
 	l.Warn(fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) Errorf(format string, args ...interface{}) {
+	l.Error(fmt.Sprintf(format, args...))
 }

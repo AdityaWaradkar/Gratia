@@ -1,0 +1,32 @@
+# Go build output
+bin/
+build/
+dist/
+*.exe
+*.out
+
+# Go module cache
+/pkg/
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# System files
+.DS_Store
+
+# Coverage files
+coverage.out
+
+# Temp files
+tmp/
