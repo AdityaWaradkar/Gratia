@@ -21,8 +21,14 @@ func main() {
 	defer dbPool.Close()
 
 	repository := auth.NewRepository(dbPool)
-	service := auth.NewService(repository, config.GetJWTSecret(), config.GetAccessTokenTTL(), config.GetRefreshTokenTTL())
-	handler := auth.NewHandler(service)
+	service := auth.NewService(
+		repository,
+		config.GetJWTSecret(),
+		config.GetAccessTokenTTL(),
+		config.GetRefreshTokenTTL(),
+	)
+	handler := auth.NewHandler(service, dbPool)
+
 	router := httpServer.RegisterRoutes(handler)
 
 	address := ":" + config.GetPort()

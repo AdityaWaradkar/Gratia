@@ -18,8 +18,15 @@ func RegisterRoutes(handler *auth.Handler) http.Handler {
 	mux.HandleFunc("/auth/reset-password", handler.ResetPassword)
 	mux.HandleFunc("/auth/verify-email", handler.VerifyEmail)
 	mux.HandleFunc("/auth/validate", handler.ValidateTokenHandler)
+	mux.HandleFunc("/auth/generate-email-verification", handler.GenerateEmailVerification)
+	mux.HandleFunc("/auth/resend-email-verification", handler.ResendEmailVerification)
+	mux.HandleFunc("/health", handler.HealthCheck)
 
+
+	//protected routes
 	mux.Handle("/auth/me", middleware.Auth(http.HandlerFunc(handler.GetCurrentUser)))
+	mux.Handle("/auth/sessions", middleware.Auth(http.HandlerFunc(handler.GetSessions)))
+	mux.Handle("/auth/sessions/", middleware.Auth(http.HandlerFunc(handler.DeleteSession)))
 
 	return mux
 }

@@ -44,8 +44,10 @@ type TokenPair struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
-func (s *Service) RegisterUser(ctx context.Context, input RegisterInput) (*User, error) {
+func (s *Service) RegisterUser(ctx context.Context, input RegisterInput, callerRole string) (*User, error) {
+	now := time.Now()
 	email := strings.TrimSpace(strings.ToLower(input.Email))
+
 	if email == "" || input.Password == "" {
 		return nil, errors.New("email and password required")
 	}
@@ -60,9 +62,16 @@ func (s *Service) RegisterUser(ctx context.Context, input RegisterInput) (*User,
 		return nil, errors.New("failed to hash password")
 	}
 
-	role := input.Role
+	role := strings.ToUpper(input.Role)
 	if role == "" {
 		role = "USER"
+	} else {
+		if role != "USER" && callerRole != "ADMIN" {
+			return nil, errors.New("unauthorized role assignment")
+		}
+		if !ValidRoles[role] {
+			return nil, errors.New("invalid role")
+		}
 	}
 
 	user := &User{
@@ -70,8 +79,8 @@ func (s *Service) RegisterUser(ctx context.Context, input RegisterInput) (*User,
 		PasswordHash:  string(hashBytes),
 		Role:          role,
 		EmailVerified: false,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	err = s.repo.CreateUser(ctx, user)
@@ -83,7 +92,9 @@ func (s *Service) RegisterUser(ctx context.Context, input RegisterInput) (*User,
 }
 
 func (s *Service) LoginUser(ctx context.Context, input LoginInput, userAgent, ip string) (*TokenPair, error) {
+	now := time.Now()
 	email := strings.TrimSpace(strings.ToLower(input.Email))
+
 	if email == "" || input.Password == "" {
 		return nil, errors.New("email or password missing")
 	}
@@ -111,14 +122,19 @@ func (s *Service) LoginUser(ctx context.Context, input LoginInput, userAgent, ip
 	rt := &RefreshToken{
 		UserID:    user.ID,
 		TokenHash: refreshToken,
-		ExpiresAt: time.Now().Add(s.refreshTTL),
+		ExpiresAt: now.Add(s.refreshTTL),
 		Revoked:   false,
-		CreatedAt: time.Now(),
+		CreatedAt: now,
 	}
 
 	err = s.repo.SaveRefreshToken(ctx, rt)
 	if err != nil {
 		return nil, err
+	}
+
+	sessions, _ := s.repo.GetSessionsByID(ctx, user.ID)
+	for _, sess := range sessions {
+		_ = s.repo.DeleteSessionByID(ctx, sess.ID)
 	}
 
 	session := &Session{
@@ -127,7 +143,7 @@ func (s *Service) LoginUser(ctx context.Context, input LoginInput, userAgent, ip
 		UserAgent:      userAgent,
 		IPAddress:      ip,
 		IsCurrent:      true,
-		CreatedAt:      time.Now(),
+		CreatedAt:      now,
 	}
 
 	err = s.repo.SaveSession(ctx, session)
@@ -135,15 +151,14 @@ func (s *Service) LoginUser(ctx context.Context, input LoginInput, userAgent, ip
 		return nil, err
 	}
 
-	return &TokenPair{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}, nil
+	return &TokenPair{AccessToken: accessToken, RefreshToken: refreshToken}, nil
 }
 
 func (s *Service) RefreshTokens(ctx context.Context, refreshToken, userAgent, ip string) (*TokenPair, error) {
+	now := time.Now()
+
 	rt, err := s.repo.GetRefreshToken(ctx, refreshToken)
-	if err != nil || rt.Revoked || rt.ExpiresAt.Before(time.Now()) {
+	if err != nil || rt.Revoked || rt.ExpiresAt.Before(now) {
 		return nil, errors.New("invalid or expired refresh token")
 	}
 
@@ -157,17 +172,17 @@ func (s *Service) RefreshTokens(ctx context.Context, refreshToken, userAgent, ip
 		return nil, err
 	}
 
-	newRefresh, err := utils.GenerateSecureToken(32)
+	newRefreshToken, err := utils.GenerateSecureToken(32)
 	if err != nil {
 		return nil, err
 	}
 
 	newRT := &RefreshToken{
 		UserID:    user.ID,
-		TokenHash: newRefresh,
-		ExpiresAt: time.Now().Add(s.refreshTTL),
+		TokenHash: newRefreshToken,
+		ExpiresAt: now.Add(s.refreshTTL),
 		Revoked:   false,
-		CreatedAt: time.Now(),
+		CreatedAt: now,
 	}
 
 	err = s.repo.SaveRefreshToken(ctx, newRT)
@@ -180,13 +195,20 @@ func (s *Service) RefreshTokens(ctx context.Context, refreshToken, userAgent, ip
 		return nil, err
 	}
 
+	sessions, _ := s.repo.GetSessionsByID(ctx, user.ID)
+	for _, sess := range sessions {
+		if sess.RefreshTokenID == rt.ID {
+			_ = s.repo.DeleteSessionByID(ctx, sess.ID)
+		}
+	}
+
 	session := &Session{
 		UserID:         user.ID,
 		RefreshTokenID: newRT.ID,
 		UserAgent:      userAgent,
 		IPAddress:      ip,
 		IsCurrent:      true,
-		CreatedAt:      time.Now(),
+		CreatedAt:      now,
 	}
 
 	err = s.repo.SaveSession(ctx, session)
@@ -194,10 +216,7 @@ func (s *Service) RefreshTokens(ctx context.Context, refreshToken, userAgent, ip
 		return nil, err
 	}
 
-	return &TokenPair{
-		AccessToken:  accessToken,
-		RefreshToken: newRefresh,
-	}, nil
+	return &TokenPair{AccessToken: accessToken, RefreshToken: newRefreshToken}, nil
 }
 
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
@@ -211,28 +230,35 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 		return err
 	}
 
-	err = s.repo.DeleteSessionByToken(ctx, rt.ID)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return s.repo.DeleteSessionByToken(ctx, rt.ID)
 }
 
 func (s *Service) generateAccessToken(user *User) (string, error) {
+	now := time.Now()
+
 	claims := jwt.MapClaims{
 		"sub":   user.ID,
 		"email": user.Email,
 		"role":  user.Role,
-		"exp":   time.Now().Add(s.accessTTL).Unix(),
-		"iat":   time.Now().Unix(),
+		"exp":   now.Add(s.accessTTL).Unix(),
+		"iat":   now.Unix(),
+		"jti":   uuid.NewString(),
 	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(s.jwtSecret)
 }
 
 func (s *Service) GetUserByID(ctx context.Context, userID string) (*User, error) {
 	return s.repo.GetUserByID(ctx, userID)
+}
+
+func (s *Service) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return nil, errors.New("email required")
+	}
+	return s.repo.GetUserByEmail(ctx, email)
 }
 
 func (s *Service) GenerateResetToken(ctx context.Context, email string) (string, error) {
@@ -266,12 +292,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetToken, newPassword str
 		return err
 	}
 
-	err = s.repo.ClearResetToken(ctx, user.ID)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return s.repo.ClearResetToken(ctx, user.ID)
 }
 
 func (s *Service) GenerateEmailVerificationToken(ctx context.Context, userID string) (string, error) {
@@ -292,12 +313,7 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) error {
 		return errors.New("invalid or expired verification token")
 	}
 
-	err = s.repo.MarkEmailVerified(ctx, user.ID, token)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return s.repo.MarkEmailVerified(ctx, user.ID, token)
 }
 
 func (s *Service) ValidateToken(ctx context.Context, tokenStr string) (map[string]interface{}, error) {
@@ -318,4 +334,42 @@ func (s *Service) ValidateToken(ctx context.Context, tokenStr string) (map[strin
 	}
 
 	return nil, errors.New("could not parse claims")
+}
+
+func (s *Service) GetSessions(ctx context.Context, userID string) ([]*Session, error) {
+	return s.repo.GetSessionsByID(ctx, userID)
+}
+
+func (s *Service) DeleteSession(ctx context.Context, userID, sessionID string) error {
+	sessions, err := s.repo.GetSessionsByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	var found bool
+	for _, session := range sessions {
+		if session.ID == sessionID {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return errors.New("session not found or unauthorized")
+	}
+
+	return s.repo.DeleteSessionByID(ctx, sessionID)
+}
+
+func (s *Service) UpdateUserRole(ctx context.Context, callerRole, userID, newRole string) error {
+	if callerRole != "ADMIN" {
+		return errors.New("only admin can update roles")
+	}
+
+	newRole = strings.ToUpper(newRole)
+	if !ValidRoles[newRole] {
+		return errors.New("invalid role")
+	}
+
+	return s.repo.UpdateUserRole(ctx, userID, newRole)
 }
