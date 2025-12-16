@@ -1,0 +1,155 @@
+openapi: 3.0.3
+info:
+  title: User Service API
+  version: 1.0.0
+  description: User profile and NGO management service for Gratia
+
+servers:
+  - url: http://localhost:8081
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        role:
+          type: string
+          enum: [Donor, NGO, Admin]
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    NGOProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        organization:
+          type: string
+        registration_no:
+          type: string
+        verified:
+          type: boolean
+        verified_by:
+          type: string
+          nullable: true
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+paths:
+
+  /users/me:
+    get:
+      summary: Get current user's profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+    put:
+      summary: Update current user's profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                address:
+                  type: string
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /ngos/{id}:
+    get:
+      summary: Get NGO profile by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: NGO profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NGOProfile'
+
+  /admin/ngos/{id}/verify:
+    post:
+      summary: Verify NGO (Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: NGO verified
+
+  /admin/ngos/{id}/reject:
+    post:
+      summary: Reject NGO (Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: NGO rejected
