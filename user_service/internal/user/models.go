@@ -6,16 +6,14 @@ import "time"
 UserProfile represents profile data for any user
 */
 type UserProfile struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"user_id"` // from Auth Service
-	Role      string    `json:"role"`    // Donor | NGO | Admin
-
-	Name      string    `json:"name"`
-	Phone     string    `json:"phone"`
-	Address   string    `json:"address"`
-
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        string     `json:"id"`
+	UserID    string     `json:"userId"`
+	Role      string     `json:"role"`
+	Name      string     `json:"name"`
+	Phone     *string    `json:"phone,omitempty"`
+	Address   *string    `json:"address,omitempty"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
 }
 
 /*

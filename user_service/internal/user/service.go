@@ -24,3 +24,13 @@ func (s *Service) UpdateMyProfile(
 
 	return s.repo.UpdateByUserID(ctx, userID, name, phone, address)
 }
+
+func (s *Service) CreateProfile(
+	ctx context.Context,
+	userID string,
+	role string,
+) (*UserProfile, error) {
+
+	// default empty profile
+	return s.repo.CreateProfile(ctx, userID, role)
+}

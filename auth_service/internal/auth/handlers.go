@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -19,6 +18,8 @@ func NewHandler(service *Service, db *pgxpool.Pool) *Handler {
 	return &Handler{service: service, db: db}
 }
 
+/* ===================== REQUEST MODELS ===================== */
+
 type RegisterRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -34,10 +35,6 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
-type JSONError struct {
-	Message string `json:"message"`
-}
-
 type ForgotPasswordRequest struct {
 	Email string `json:"email"`
 }
@@ -47,51 +44,46 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
+type JSONError struct {
+	Message string `json:"message"`
+}
+
+/* ===================== HELPERS ===================== */
+
 func writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(JSONError{Message: msg})
+	_ = json.NewEncoder(w).Encode(JSONError{Message: msg})
 }
 
-func isValidRole(role string) bool {
-	switch role {
-	case RoleUser, RoleAdmin, RoleMod:
-		return true
-	default:
-		return false
-	}
-}
+/* ===================== AUTH ===================== */
 
 func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
-	if json.NewDecoder(r.Body).Decode(&req) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
 	if ValidateEmail(req.Email) != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid email")
 		return
 	}
+
 	if ValidatePassword(req.Password) != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid password")
 		return
 	}
 
-	role := req.Role
-	if role == "" {
-		role = RoleUser
-	} else if !isValidRole(role) {
-		writeJSONError(w, http.StatusBadRequest, "invalid role")
-		return
-	}
+	role := strings.ToUpper(req.Role)
 
 	callerRole := middleware.UserRole(r.Context())
 	if callerRole == "" {
-		callerRole = RoleUser
+		callerRole = RoleDonor
 	}
 
 	user, err := h.service.RegisterUser(
-		context.Background(),
+		r.Context(),
 		RegisterInput{
 			Email:    req.Email,
 			Password: req.Password,
@@ -106,26 +98,23 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
-	if json.NewDecoder(r.Body).Decode(&req) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if ValidateEmail(req.Email) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid email")
-		return
-	}
-	if ValidatePassword(req.Password) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid password")
+
+	if ValidateEmail(req.Email) != nil || ValidatePassword(req.Password) != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid credentials")
 		return
 	}
 
 	tokens, err := h.service.LoginUser(
-		context.Background(),
+		r.Context(),
 		LoginInput{Email: req.Email, Password: req.Password},
 		r.UserAgent(),
 		r.RemoteAddr,
@@ -136,19 +125,18 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(tokens)
+	_ = json.NewEncoder(w).Encode(tokens)
 }
 
 func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
-	if json.NewDecoder(r.Body).Decode(&req) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	tokens, err := h.service.RefreshTokens(
-		context.Background(),
+		r.Context(),
 		req.RefreshToken,
 		r.UserAgent(),
 		r.RemoteAddr,
@@ -159,19 +147,17 @@ func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(tokens)
+	_ = json.NewEncoder(w).Encode(tokens)
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
-	if json.NewDecoder(r.Body).Decode(&req) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	err := h.service.Logout(context.Background(), req.RefreshToken)
-	if err != nil {
+	if err := h.service.Logout(r.Context(), req.RefreshToken); err != nil {
 		writeJSONError(w, http.StatusUnauthorized, "invalid refresh token")
 		return
 	}
@@ -193,24 +179,25 @@ func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
+
+/* ===================== PASSWORD ===================== */
 
 func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req ForgotPasswordRequest
-	if json.NewDecoder(r.Body).Decode(&req) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	token, err := h.service.GenerateResetToken(context.Background(), req.Email)
+	token, err := h.service.GenerateResetToken(r.Context(), req.Email)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"resetToken": token,
 		"note":       "This would be emailed in production",
 	})
@@ -218,17 +205,16 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req ResetPasswordRequest
-	if json.NewDecoder(r.Body).Decode(&req) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
-		return
-	}
-	if req.ResetToken == "" || req.NewPassword == "" {
-		writeJSONError(w, http.StatusBadRequest, "token and password required")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	err := h.service.ResetPassword(context.Background(), req.ResetToken, req.NewPassword)
-	if err != nil {
+	if err := h.service.ResetPassword(
+		r.Context(),
+		req.ResetToken,
+		req.NewPassword,
+	); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid reset token")
 		return
 	}
@@ -236,153 +222,12 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Token string `json:"token"`
-	}
-	if json.NewDecoder(r.Body).Decode(&req) != nil || req.Token == "" {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
-		return
-	}
-
-	err := h.service.VerifyEmail(r.Context(), req.Token)
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid token")
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *Handler) ValidateTokenHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Token string `json:"token"`
-	}
-	if json.NewDecoder(r.Body).Decode(&req) != nil || req.Token == "" {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
-		return
-	}
-
-	claims, err := h.service.ValidateToken(r.Context(), req.Token)
-	if err != nil {
-		writeJSONError(w, http.StatusUnauthorized, err.Error())
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(claims)
-}
-
-func (h *Handler) GenerateEmailVerification(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Email string `json:"email"`
-	}
-
-	if json.NewDecoder(r.Body).Decode(&req) != nil || req.Email == "" {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
-		return
-	}
-
-	user, err := h.service.GetUserByEmail(r.Context(), req.Email)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "user not found")
-		return
-	}
-
-	token, err := h.service.GenerateEmailVerificationToken(r.Context(), user.ID)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	token = strings.ReplaceAll(token, "-", "")
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"verificationToken": token,
-		"note":              "This would be emailed in production",
-	})
-}
-
-func (h *Handler) GetSessions(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.UserID(r.Context())
-	if userID == "" {
-		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	sessions, err := h.service.GetSessions(r.Context(), userID)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "could not fetch sessions")
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(sessions)
-}
-
-func (h *Handler) DeleteSession(w http.ResponseWriter, r *http.Request) {
-	prefix := "/auth/sessions/"
-	sessionID := r.URL.Path[len(prefix):]
-
-	if sessionID == "" {
-		writeJSONError(w, http.StatusBadRequest, "session ID required")
-		return
-	}
-
-	userID := middleware.UserID(r.Context())
-	if userID == "" {
-		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	err := h.service.DeleteSession(r.Context(), userID, sessionID)
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *Handler) ResendEmailVerification(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Email string `json:"email"`
-	}
-	if json.NewDecoder(r.Body).Decode(&req) != nil || req.Email == "" {
-		writeJSONError(w, http.StatusBadRequest, "invalid request")
-		return
-	}
-
-	user, err := h.service.GetUserByEmail(r.Context(), req.Email)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "user not found")
-		return
-	}
-
-	if user.EmailVerified {
-		writeJSONError(w, http.StatusBadRequest, "email already verified")
-		return
-	}
-
-	token, err := h.service.GenerateEmailVerificationToken(r.Context(), user.ID)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"verificationToken": token,
-		"note":              "This would be emailed in production",
-	})
-}
+/* ===================== HEALTH ===================== */
 
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	err := h.db.Ping(r.Context())
-	if err != nil {
+	if err := h.db.Ping(r.Context()); err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		w.Write([]byte(`{"status":"error","details":"database unreachable"}`))
 		return

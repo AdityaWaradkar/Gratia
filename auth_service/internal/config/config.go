@@ -15,6 +15,7 @@ type Config struct {
 	JWTSecret       string
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
+	UserServiceURL string
 }
 
 var AppConfig *Config
@@ -34,6 +35,11 @@ func LoadConfig() {
 		log.Fatal("JWT_SECRET is required")
 	}
 
+	userServiceURL := getEnv("USER_SERVICE_URL", "")
+	if userServiceURL == "" {
+		log.Fatal("USER_SERVICE_URL is required")
+	}
+
 	accessMinutes, err := strconv.Atoi(getEnv("ACCESS_TOKEN_MINUTES", "15"))
 	if err != nil {
 		accessMinutes = 15
@@ -50,8 +56,10 @@ func LoadConfig() {
 		JWTSecret:       secret,
 		AccessTokenTTL:  time.Duration(accessMinutes) * time.Minute,
 		RefreshTokenTTL: time.Duration(refreshDays*24) * time.Hour,
+		UserServiceURL:  userServiceURL,
 	}
 }
+
 
 func getEnv(key, defaultValue string) string {
 	value, ok := os.LookupEnv(key)

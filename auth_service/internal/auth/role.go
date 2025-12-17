@@ -1,8 +1,8 @@
 package auth
 
-// Role constants for users
+// Role constants for Gratia platform
 const (
-    RoleUser  = "USER"
-    RoleAdmin = "ADMIN"
-    RoleMod   = "MODERATOR"
+	RoleDonor = "DONOR"
+	RoleNGO   = "NGO"
+	RoleAdmin = "ADMIN"
 )

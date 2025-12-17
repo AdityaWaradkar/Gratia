@@ -2,6 +2,9 @@ package auth
 
 import "time"
 
+/*
+	User represents an authenticated account in the system.
+*/
 type User struct {
 	ID            string    `json:"id" db:"id"`
 	Email         string    `json:"email" db:"email"`
@@ -12,6 +15,9 @@ type User struct {
 	UpdatedAt     time.Time `json:"updatedAt" db:"updated_at"`
 }
 
+/*
+	RefreshToken is used to issue new access tokens.
+*/
 type RefreshToken struct {
 	ID        string    `json:"id" db:"id"`
 	UserID    string    `json:"userId" db:"user_id"`
@@ -21,6 +27,9 @@ type RefreshToken struct {
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 }
 
+/*
+	Session tracks active login sessions per user.
+*/
 type Session struct {
 	ID             string    `json:"id" db:"id"`
 	UserID         string    `json:"userId" db:"user_id"`
@@ -31,6 +40,9 @@ type Session struct {
 	CreatedAt      time.Time `json:"createdAt" db:"created_at"`
 }
 
+/*
+	EmailVerification is used to verify user email addresses.
+*/
 type EmailVerification struct {
 	ID        string    `json:"id" db:"id"`
 	UserID    string    `json:"userId" db:"user_id"`
@@ -40,6 +52,9 @@ type EmailVerification struct {
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 }
 
+/*
+	PasswordReset handles forgot-password flows.
+*/
 type PasswordReset struct {
 	ID        string    `json:"id" db:"id"`
 	UserID    string    `json:"userId" db:"user_id"`
@@ -50,6 +65,10 @@ type PasswordReset struct {
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 }
 
+/*
+	AuditLog records security-sensitive actions.
+	(Optional / future-use, safe to keep.)
+*/
 type AuditLog struct {
 	ID        string    `json:"id" db:"id"`
 	UserID    *string   `json:"userId,omitempty" db:"user_id"`

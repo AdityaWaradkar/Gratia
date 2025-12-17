@@ -11,20 +11,40 @@ import (
 )
 
 func Start(cfg *config.Config, db *sql.DB) {
-	mux := http.NewServeMux()
+	rootMux := http.NewServeMux()
 
-	// Health
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	// --------------------
+	// Health (public)
+	// --------------------
+	rootMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("user service healthy"))
 	})
 
+	// --------------------
 	// User module wiring
+	// --------------------
 	userRepo := user.NewRepository(db)
 	userService := user.NewService(userRepo)
 	userHandler := user.NewHandler(userService)
 
-	mux.HandleFunc("/users/me", func(w http.ResponseWriter, r *http.Request) {
+	// --------------------
+	// INTERNAL (NO JWT)
+	// --------------------
+	rootMux.HandleFunc("/internal/users", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		userHandler.CreateProfile(w, r)
+	})
+
+	// --------------------
+	// PROTECTED (JWT)
+	// --------------------
+	protectedMux := http.NewServeMux()
+
+	protectedMux.HandleFunc("/users/me", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			userHandler.GetMe(w, r)
@@ -35,9 +55,11 @@ func Start(cfg *config.Config, db *sql.DB) {
 		}
 	})
 
-	// Apply auth middleware
-	protected := middleware.AuthMiddleware(cfg)(mux)
+	secured := middleware.AuthMiddleware(cfg)(protectedMux)
+
+	// Mount secured routes under /users
+	rootMux.Handle("/users/", secured)
 
 	log.Println("User Service running on port", cfg.ServerPort)
-	log.Fatal(http.ListenAndServe(":"+cfg.ServerPort, protected))
+	log.Fatal(http.ListenAndServe(":"+cfg.ServerPort, rootMux))
 }

@@ -81,3 +81,30 @@ func (r *Repository) UpdateByUserID(
 
 	return &profile, nil
 }
+
+func (r *Repository) CreateProfile(
+	ctx context.Context,
+	userID string,
+	role string,
+) (*UserProfile, error) {
+
+	query := `
+		INSERT INTO user_profiles (user_id, role, name)
+		VALUES ($1, $2, '')
+		RETURNING id, user_id, role, name, phone, address, created_at, updated_at
+	`
+
+	var profile UserProfile
+	err := r.db.QueryRowContext(ctx, query, userID, role).Scan(
+		&profile.ID,
+		&profile.UserID,
+		&profile.Role,
+		&profile.Name,
+		&profile.Phone,
+		&profile.Address,
+		&profile.CreatedAt,
+		&profile.UpdatedAt,
+	)
+
+	return &profile, err
+}
