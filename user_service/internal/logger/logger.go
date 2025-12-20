@@ -2,11 +2,17 @@ package logger
 
 import (
 	"log"
+	"os"
 )
 
+// Logger is the shared service logger
 var Logger *log.Logger
 
-func Init(level string) {
-	Logger = log.Default()
-	Logger.Println("Logger initialized with level:", level)
+// Init initializes the logger
+func Init() {
+	Logger = log.New(
+		os.Stdout,
+		"[USER_SERVICE] ",
+		log.LstdFlags|log.Lshortfile,
+	)
 }

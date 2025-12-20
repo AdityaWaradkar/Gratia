@@ -1,22 +1,38 @@
 package main
 
 import (
-	"user_service/internal/config"
-	"user_service/internal/db"
-	"user_service/internal/logger"
-	"user_service/internal/server"
+	"net/http"
+
+	"github.com/adityawaradkar/gratia/user_service/internal/config"
+	"github.com/adityawaradkar/gratia/user_service/internal/db"
+	"github.com/adityawaradkar/gratia/user_service/internal/logger"
+	"github.com/adityawaradkar/gratia/user_service/internal/server"
+	"github.com/adityawaradkar/gratia/user_service/internal/user"
 )
 
 func main() {
 	// Load configuration
-	cfg := config.Load()
+	config.Load()
 
 	// Initialize logger
-	logger.Init(cfg.LogLevel)
+	logger.Init()
 
-	// Initialize database
-	dbConn := db.Init(cfg)
+	// Connect to database
+	database := db.Connect(config.AppConfig.DatabaseURL)
+	defer database.Close()
 
-	// Start HTTP server
-	server.Start(cfg, dbConn)
+	// Wire domain
+	repo := user.NewRepository(database)
+	service := user.NewService(repo)
+	handler := user.NewHandler(service)
+
+	// Setup HTTP server
+	router := server.RegisterRoutes(handler)
+
+	logger.Logger.Println("user service running on port", config.AppConfig.Port)
+
+	// Start server
+	if err := http.ListenAndServe(":"+config.AppConfig.Port, router); err != nil {
+		logger.Logger.Fatalf("server failed: %v", err)
+	}
 }

@@ -3,37 +3,44 @@ package config
 import (
 	"log"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
+// Config holds user service configuration
 type Config struct {
-	ServerPort string
-	DBUrl      string
-	LogLevel   string
-	JWTSecret  string
+	Port        string
+	DatabaseURL string
+	JWTSecret   string
 }
 
-func Load() *Config {
-	cfg := &Config{
-		ServerPort: getEnv("SERVER_PORT", "8081"),
-		DBUrl:      getEnv("DB_URL", ""),
-		LogLevel:   getEnv("LOG_LEVEL", "info"),
-		JWTSecret:  getEnv("JWT_SECRET", ""),
-	}
+// AppConfig is the loaded configuration
+var AppConfig *Config
 
-	if cfg.DBUrl == "" {
-		log.Fatal("DB_URL is required")
-	}
+// Load reads environment variables into Config
+func Load() {
+	_ = godotenv.Load()
 
-	if cfg.JWTSecret == "" {
-		log.Fatal("JWT_SECRET is required")
+	AppConfig = &Config{
+		Port:        getEnv("PORT", "8081"),
+		DatabaseURL: mustEnv("DATABASE_URL"),
+		JWTSecret:   mustEnv("JWT_SECRET"),
 	}
-
-	return cfg
 }
 
-func getEnv(key, fallback string) string {
-	if val, ok := os.LookupEnv(key); ok {
-		return val
+// getEnv reads optional env variable
+func getEnv(key, defaultValue string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
-	return fallback
+	return defaultValue
+}
+
+// mustEnv reads required env variable
+func mustEnv(key string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		log.Fatalf("%s is required", key)
+	}
+	return v
 }
