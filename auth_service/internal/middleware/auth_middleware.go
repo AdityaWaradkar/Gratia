@@ -10,120 +10,94 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-/*
-	Context keys are unexported to avoid collisions
-*/
+// Context keys for authenticated user
 type contextKey string
 
 const (
-	ctxUserIDKey    contextKey = "userID"
-	ctxUserEmailKey contextKey = "userEmail"
-	ctxUserRoleKey  contextKey = "userRole"
+	UserIDKey    contextKey = "user_id"
+	UserEmailKey contextKey = "user_email"
+	UserRoleKey  contextKey = "user_role"
 )
 
+// errorResponse represents auth error
 type errorResponse struct {
 	Message string `json:"message"`
 }
 
-/*
-	Auth middleware validates JWT and injects user data into context
-*/
+// Auth validates JWT and injects user context
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		tokenString := extractBearerToken(r)
-		if tokenString == "" {
-			writeJSONError(w, "authorization token missing or invalid", http.StatusUnauthorized)
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			writeError(w, http.StatusUnauthorized, "authorization header missing")
 			return
 		}
 
-		claims, err := validateJWT(tokenString)
-		if err != nil {
-			writeJSONError(w, err.Error(), http.StatusUnauthorized)
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			writeError(w, http.StatusUnauthorized, "invalid authorization header format")
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), ctxUserIDKey, claims.UserID)
-		ctx = context.WithValue(ctx, ctxUserEmailKey, claims.Email)
-		ctx = context.WithValue(ctx, ctxUserRoleKey, claims.Role)
+		tokenStr := parts[1]
+
+		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+			_, ok := t.Method.(*jwt.SigningMethodHMAC)
+			if !ok {
+				return nil, jwt.ErrTokenSignatureInvalid
+			}
+			return []byte(config.AppConfig.JWTSecret), nil
+		})
+
+		if err != nil || !token.Valid {
+			writeError(w, http.StatusUnauthorized, "invalid or expired token")
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "invalid token claims")
+			return
+		}
+
+		userID, _ := claims["sub"].(string)
+		email, _ := claims["email"].(string)
+		role, _ := claims["role"].(string)
+
+		if userID == "" || email == "" || role == "" {
+			writeError(w, http.StatusUnauthorized, "invalid token claims")
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		ctx = context.WithValue(ctx, UserEmailKey, email)
+		ctx = context.WithValue(ctx, UserRoleKey, role)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-/* ===================== HELPERS ===================== */
-
-type jwtClaims struct {
-	UserID string
-	Email  string
-	Role   string
+// UserID returns user id from context
+func UserID(ctx context.Context) string {
+	v, _ := ctx.Value(UserIDKey).(string)
+	return v
 }
 
-func extractBearerToken(r *http.Request) string {
-	header := r.Header.Get("Authorization")
-	if header == "" {
-		return ""
-	}
-
-	parts := strings.SplitN(header, " ", 2)
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return ""
-	}
-
-	return parts[1]
+// UserEmail returns email from context
+func UserEmail(ctx context.Context) string {
+	v, _ := ctx.Value(UserEmailKey).(string)
+	return v
 }
 
-func validateJWT(tokenString string) (*jwtClaims, error) {
-	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, jwt.ErrTokenSignatureInvalid
-		}
-		return []byte(config.GetJWTSecret()), nil
-	})
-
-	if err != nil || !token.Valid {
-		return nil, jwt.ErrTokenInvalidClaims
-	}
-
-	mapClaims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, jwt.ErrTokenInvalidClaims
-	}
-
-	userID, _ := mapClaims["sub"].(string)
-	email, _ := mapClaims["email"].(string)
-	role, _ := mapClaims["role"].(string)
-
-	if userID == "" || email == "" || role == "" {
-		return nil, jwt.ErrTokenInvalidClaims
-	}
-
-	return &jwtClaims{
-		UserID: userID,
-		Email:  email,
-		Role:   role,
-	}, nil
+// UserRole returns role from context
+func UserRole(ctx context.Context) string {
+	v, _ := ctx.Value(UserRoleKey).(string)
+	return v
 }
 
-func writeJSONError(w http.ResponseWriter, message string, status int) {
+func writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(errorResponse{Message: message})
-}
-
-/* ===================== CONTEXT ACCESSORS ===================== */
-
-func UserID(ctx context.Context) string {
-	v, _ := ctx.Value(ctxUserIDKey).(string)
-	return v
-}
-
-func UserEmail(ctx context.Context) string {
-	v, _ := ctx.Value(ctxUserEmailKey).(string)
-	return v
-}
-
-func UserRole(ctx context.Context) string {
-	v, _ := ctx.Value(ctxUserRoleKey).(string)
-	return v
 }

@@ -5,18 +5,11 @@ import (
 	"encoding/base64"
 )
 
-func GenerateSecureToken(size int) (string, error) {
-	if size <= 0 {
-		size = 32
-	}
-
-	bytes := make([]byte, size)
-
-	_, err := rand.Read(bytes)
-	if err != nil {
+// GenerateSecureToken returns a random URL-safe token
+func GenerateSecureToken(length int) (string, error) {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-
-	token := base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(bytes)
-	return token, nil
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

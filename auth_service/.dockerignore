@@ -11,7 +11,6 @@ build/
 dist/
 
 # Go build cache
-/pkg/
 cache/
 *.test
 
@@ -46,5 +45,8 @@ vendor/
 docker-compose.yml
 docker-compose.yaml
 
-# Any uploaded files
+# Runtime data
 uploads/
+
+# Optional
+*_test.go

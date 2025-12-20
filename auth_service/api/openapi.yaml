@@ -2,18 +2,24 @@ openapi: 3.0.3
 
 info:
   title: Authentication Service API
-  description: API for user registration, login, token management, and password reset.
+  description: Authentication and authorization service for user accounts, JWT tokens, and password management.
   version: 1.0.0
+
 servers:
-  - url: /auth
-    description: Base URL for the Authentication Service endpoints
+  - url: /
+    description: Auth Service Base URL
+
+tags:
+  - name: Authentication
+  - name: User
+  - name: Password
+  - name: Monitoring
 
 paths:
-  /register:
+  /auth/register:
     post:
       summary: Register a new user
-      tags:
-        - Authentication
+      tags: [Authentication]
       requestBody:
         required: true
         content:
@@ -22,23 +28,22 @@ paths:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
         '201':
-          description: User successfully registered and created
+          description: User registered successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
         '400':
-          description: Invalid request, email, password, or role
+          description: Invalid input or user already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JSONError'
-  
-  /login:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
     post:
-      summary: User login and token generation
-      tags:
-        - Authentication
+      summary: Login user and issue tokens
+      tags: [Authentication]
       requestBody:
         required: true
         content:
@@ -47,23 +52,22 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Login successful, returns access and refresh tokens
+          description: Tokens issued successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenPair'
         '401':
-          description: Invalid email or password
+          description: Invalid credentials
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JSONError'
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /refresh:
+  /auth/refresh:
     post:
       summary: Refresh access and refresh tokens
-      tags:
-        - Authentication
+      tags: [Authentication]
       requestBody:
         required: true
         content:
@@ -72,7 +76,7 @@ paths:
               $ref: '#/components/schemas/RefreshRequest'
       responses:
         '200':
-          description: Tokens successfully refreshed
+          description: Tokens refreshed successfully
           content:
             application/json:
               schema:
@@ -82,13 +86,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JSONError'
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /logout:
+  /auth/logout:
     post:
-      summary: Logout and revoke refresh token
-      tags:
-        - Authentication
+      summary: Logout user and revoke refresh token
+      tags: [Authentication]
       requestBody:
         required: true
         content:
@@ -97,24 +100,23 @@ paths:
               $ref: '#/components/schemas/RefreshRequest'
       responses:
         '204':
-          description: Successfully logged out (No Content)
+          description: Logged out successfully
         '401':
-          description: Invalid refresh token
+          description: Invalid token
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JSONError'
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /user:
+  /auth/me:
     get:
-      summary: Get the current authenticated user's details
-      tags:
-        - User
+      summary: Get current authenticated user
+      tags: [User]
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: User details retrieved
+          description: User details
           content:
             application/json:
               schema:
@@ -124,19 +126,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JSONError'
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-  
-  /forgot-password:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/forgot-password:
     post:
-      summary: Initiate password reset by generating a reset token
-      tags:
-        - Password Management
+      summary: Generate password reset token
+      tags: [Password]
       requestBody:
         required: true
         content:
@@ -145,23 +140,22 @@ paths:
               $ref: '#/components/schemas/ForgotPasswordRequest'
       responses:
         '200':
-          description: Password reset token generated
+          description: Reset token generated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PasswordResetResponse'
         '400':
-          description: Invalid request or email not found
+          description: Invalid email
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JSONError'
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /reset-password:
+  /auth/reset-password:
     post:
-      summary: Reset user password using a valid reset token
-      tags:
-        - Password Management
+      summary: Reset password using reset token
+      tags: [Password]
       requestBody:
         required: true
         content:
@@ -170,192 +164,21 @@ paths:
               $ref: '#/components/schemas/ResetPasswordRequest'
       responses:
         '204':
-          description: Password successfully reset (No Content)
+          description: Password reset successfully
         '400':
-          description: Invalid reset token or missing parameters
+          description: Invalid token or password
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JSONError'
-
-  /verify-email:
-    post:
-      summary: Verify user email using a verification token
-      tags:
-        - Email Verification
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VerifyEmailRequest'
-      responses:
-        '204':
-          description: Email successfully verified (No Content)
-        '400':
-          description: Invalid or expired verification token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-
-  /generate-email-verification:
-    post:
-      summary: Manually generate an email verification token for a user
-      tags:
-        - Email Verification
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ForgotPasswordRequest'
-      responses:
-        '200':
-          description: Verification token generated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EmailVerificationResponse'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-
-  /resend-email-verification:
-    post:
-      summary: Resend email verification token
-      tags:
-        - Email Verification
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ForgotPasswordRequest'
-      responses:
-        '200':
-          description: Verification token re-generated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EmailVerificationResponse'
-        '400':
-          description: Invalid request or email already verified
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-        '404':
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-
-  /validate-token:
-    post:
-      summary: Validate an access token and get claims
-      tags:
-        - Token Management
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ValidateTokenRequest'
-      responses:
-        '200':
-          description: Token is valid, returns claims
-          content:
-            application/json:
-              schema:
-                type: object
-                description: JWT claims map
-                additionalProperties: true
-        '401':
-          description: Invalid or expired token
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-
-  /sessions:
-    get:
-      summary: Get all active sessions for the current user
-      tags:
-        - Session Management
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: List of active sessions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Session'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-        '500':
-          description: Could not fetch sessions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-  
-  /sessions/{sessionId}:
-    delete:
-      summary: Delete a specific session by ID (log out a device)
-      tags:
-        - Session Management
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: sessionId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The ID of the session to delete
-      responses:
-        '204':
-          description: Session successfully deleted (No Content)
-        '400':
-          description: Invalid session ID or request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JSONError'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /health:
     get:
-      summary: Health check endpoint
-      tags:
-        - Monitoring
+      summary: Health check
+      tags: [Monitoring]
       responses:
         '200':
-          description: Service is healthy
+          description: Service healthy
           content:
             application/json:
               schema:
@@ -364,19 +187,6 @@ paths:
                   status:
                     type: string
                     example: ok
-        '503':
-          description: Service unavailable (e.g., database unreachable)
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: error
-                  details:
-                    type: string
-                    example: database unreachable
 
 components:
   securitySchemes:
@@ -384,13 +194,11 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  
+
   schemas:
     RegisterRequest:
       type: object
-      required:
-        - email
-        - password
+      required: [email, password]
       properties:
         email:
           type: string
@@ -400,18 +208,12 @@ components:
           format: password
         role:
           type: string
-          enum: [user, admin, mod]
-          default: user
-      example:
-        email: user@example.com
-        password: StrongPassword123
-        role: user
+          enum: [USER, ADMIN]
+          default: USER
 
     LoginRequest:
       type: object
-      required:
-        - email
-        - password
+      required: [email, password]
       properties:
         email:
           type: string
@@ -422,16 +224,14 @@ components:
 
     RefreshRequest:
       type: object
-      required:
-        - refreshToken
+      required: [refreshToken]
       properties:
         refreshToken:
           type: string
 
     ForgotPasswordRequest:
       type: object
-      required:
-        - email
+      required: [email]
       properties:
         email:
           type: string
@@ -439,39 +239,13 @@ components:
 
     ResetPasswordRequest:
       type: object
-      required:
-        - resetToken
-        - newPassword
+      required: [token, newPassword]
       properties:
-        resetToken:
+        token:
           type: string
         newPassword:
           type: string
           format: password
-
-    VerifyEmailRequest:
-      type: object
-      required:
-        - token
-      properties:
-        token:
-          type: string
-
-    ValidateTokenRequest:
-      type: object
-      required:
-        - token
-      properties:
-        token:
-          type: string
-
-    JSONError:
-      type: object
-      properties:
-        message:
-          type: string
-      example:
-        message: invalid email or password
 
     TokenPair:
       type: object
@@ -480,9 +254,6 @@ components:
           type: string
         refreshToken:
           type: string
-      example:
-        accessToken: eyJhbGciOiJIUzI1Ni...
-        refreshToken: df8c5a9b3e1f4d7b...
 
     UserResponse:
       type: object
@@ -495,7 +266,7 @@ components:
           format: email
         role:
           type: string
-          enum: [USER, ADMIN, MOD]
+          enum: [USER, ADMIN]
         emailVerified:
           type: boolean
         createdAt:
@@ -504,49 +275,15 @@ components:
         updatedAt:
           type: string
           format: date-time
-      example:
-        id: 123e4567-e89b-12d3-a456-426614174000
-        email: user@example.com
-        role: USER
-        emailVerified: false
-        createdAt: '2025-11-17T10:00:00Z'
-        updatedAt: '2025-11-17T10:00:00Z'
-
-    Session:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        userId:
-          type: string
-          format: uuid
-        refreshTokenId:
-          type: string
-          format: uuid
-        userAgent:
-          type: string
-        ipAddress:
-          type: string
-          format: ipv4
-        isCurrent:
-          type: boolean
-        createdAt:
-          type: string
-          format: date-time
 
     PasswordResetResponse:
       type: object
       properties:
         resetToken:
           type: string
-      example:
-        resetToken: 42a5b8c3-f1d9-4e7a-9c6f-0e2b3d4a5c6d
 
-    EmailVerificationResponse:
+    ErrorResponse:
       type: object
       properties:
-        verificationToken:
+        message:
           type: string
-      example:
-        verificationToken: d4a5c6d42a5b8c3f1d94e7a9c6f0e2b3

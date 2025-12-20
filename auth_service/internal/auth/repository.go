@@ -8,11 +8,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-/*
-Repo defines persistence behavior.
-Business validation MUST NOT live here.
-*/
-type Repo interface {
+// Repository defines database operations for auth service
+type Repository interface {
 	CreateUser(ctx context.Context, user *User) error
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, id string) (*User, error)
@@ -21,34 +18,29 @@ type Repo interface {
 	UpdatePassword(ctx context.Context, userID, newHash string) error
 	UpdateUserRole(ctx context.Context, userID, role string) error
 
-	SaveRefreshToken(ctx context.Context, rt *RefreshToken) error
+	SaveRefreshToken(ctx context.Context, token *RefreshToken) error
 	GetRefreshToken(ctx context.Context, token string) (*RefreshToken, error)
-	RevokeRefreshToken(ctx context.Context, id string) error
+	RevokeRefreshToken(ctx context.Context, tokenID string) error
 
-	SaveSession(ctx context.Context, s *Session) error
+	SaveSession(ctx context.Context, session *Session) error
 	DeleteSessionByToken(ctx context.Context, refreshTokenID string) error
-	DeleteSessionByID(ctx context.Context, id string) error
-	GetSessionsByID(ctx context.Context, userID string) ([]*Session, error)
 
 	StoreResetToken(ctx context.Context, userID, token string) error
 	FindByResetToken(ctx context.Context, token string) (*User, error)
 	ClearResetToken(ctx context.Context, userID string) error
-
-	StoreEmailVerification(ctx context.Context, userID, token string, expiresAt time.Time) error
-	VerifyEmailToken(ctx context.Context, token string) (*User, error)
-	MarkEmailVerified(ctx context.Context, userID, token string) error
 }
 
+// repository is the concrete implementation
 type repository struct {
 	db *pgxpool.Pool
 }
 
-func NewRepository(db *pgxpool.Pool) Repo {
+// NewRepository creates a new repository
+func NewRepository(db *pgxpool.Pool) Repository {
 	return &repository{db: db}
 }
 
-/* ===================== USERS ===================== */
-
+// CreateUser inserts a new user
 func (r *repository) CreateUser(ctx context.Context, user *User) error {
 	query := `
 		INSERT INTO users (email, password_hash, role, email_verified)
@@ -66,6 +58,7 @@ func (r *repository) CreateUser(ctx context.Context, user *User) error {
 	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 }
 
+// GetUserByEmail fetches user by email
 func (r *repository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	query := `
 		SELECT id, email, password_hash, role, email_verified, created_at, updated_at
@@ -87,9 +80,11 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (*User, e
 	if err != nil {
 		return nil, err
 	}
+
 	return user, nil
 }
 
+// GetUserByID fetches user by ID
 func (r *repository) GetUserByID(ctx context.Context, id string) (*User, error) {
 	query := `
 		SELECT id, email, password_hash, role, email_verified, created_at, updated_at
@@ -111,27 +106,11 @@ func (r *repository) GetUserByID(ctx context.Context, id string) (*User, error) 
 	if err != nil {
 		return nil, err
 	}
+
 	return user, nil
 }
 
-func (r *repository) UpdateUserRole(ctx context.Context, userID, role string) error {
-	cmd, err := r.db.Exec(
-		ctx,
-		`UPDATE users SET role = $2, updated_at = $3 WHERE id = $1`,
-		userID,
-		role,
-		time.Now(),
-	)
-
-	if err != nil {
-		return err
-	}
-	if cmd.RowsAffected() == 0 {
-		return errors.New("user not found")
-	}
-	return nil
-}
-
+// UpdateEmailVerified marks email as verified
 func (r *repository) UpdateEmailVerified(ctx context.Context, userID string) error {
 	cmd, err := r.db.Exec(
 		ctx,
@@ -143,12 +122,15 @@ func (r *repository) UpdateEmailVerified(ctx context.Context, userID string) err
 	if err != nil {
 		return err
 	}
+
 	if cmd.RowsAffected() == 0 {
 		return errors.New("user not found")
 	}
+
 	return nil
 }
 
+// UpdatePassword updates user password hash
 func (r *repository) UpdatePassword(ctx context.Context, userID, newHash string) error {
 	cmd, err := r.db.Exec(
 		ctx,
@@ -161,15 +143,37 @@ func (r *repository) UpdatePassword(ctx context.Context, userID, newHash string)
 	if err != nil {
 		return err
 	}
+
 	if cmd.RowsAffected() == 0 {
 		return errors.New("user not found")
 	}
+
 	return nil
 }
 
-/* ===================== SESSIONS & TOKENS ===================== */
+// UpdateUserRole updates user role
+func (r *repository) UpdateUserRole(ctx context.Context, userID, role string) error {
+	cmd, err := r.db.Exec(
+		ctx,
+		`UPDATE users SET role = $2, updated_at = $3 WHERE id = $1`,
+		userID,
+		role,
+		time.Now(),
+	)
 
-func (r *repository) SaveRefreshToken(ctx context.Context, rt *RefreshToken) error {
+	if err != nil {
+		return err
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return errors.New("user not found")
+	}
+
+	return nil
+}
+
+// SaveRefreshToken stores refresh token
+func (r *repository) SaveRefreshToken(ctx context.Context, token *RefreshToken) error {
 	query := `
 		INSERT INTO refresh_tokens (user_id, token, expires_at, revoked, created_at)
 		VALUES ($1, $2, $3, $4, $5)
@@ -179,14 +183,15 @@ func (r *repository) SaveRefreshToken(ctx context.Context, rt *RefreshToken) err
 	return r.db.QueryRow(
 		ctx,
 		query,
-		rt.UserID,
-		rt.TokenHash,
-		rt.ExpiresAt,
-		rt.Revoked,
-		rt.CreatedAt,
-	).Scan(&rt.ID)
+		token.UserID,
+		token.Token,
+		token.ExpiresAt,
+		token.Revoked,
+		token.CreatedAt,
+	).Scan(&token.ID)
 }
 
+// GetRefreshToken fetches refresh token
 func (r *repository) GetRefreshToken(ctx context.Context, token string) (*RefreshToken, error) {
 	query := `
 		SELECT id, user_id, token, expires_at, revoked, created_at
@@ -198,7 +203,7 @@ func (r *repository) GetRefreshToken(ctx context.Context, token string) (*Refres
 	err := r.db.QueryRow(ctx, query, token).Scan(
 		&rt.ID,
 		&rt.UserID,
-		&rt.TokenHash,
+		&rt.Token,
 		&rt.ExpiresAt,
 		&rt.Revoked,
 		&rt.CreatedAt,
@@ -207,28 +212,31 @@ func (r *repository) GetRefreshToken(ctx context.Context, token string) (*Refres
 	if err != nil {
 		return nil, err
 	}
+
 	return rt, nil
 }
 
-func (r *repository) RevokeRefreshToken(ctx context.Context, id string) error {
+// RevokeRefreshToken invalidates refresh token
+func (r *repository) RevokeRefreshToken(ctx context.Context, tokenID string) error {
 	cmd, err := r.db.Exec(
 		ctx,
 		`UPDATE refresh_tokens SET revoked = true WHERE id = $1`,
-		id,
+		tokenID,
 	)
 
 	if err != nil {
 		return err
 	}
+
 	if cmd.RowsAffected() == 0 {
 		return errors.New("token not found")
 	}
+
 	return nil
 }
 
-/* ===================== SESSIONS ===================== */
-
-func (r *repository) SaveSession(ctx context.Context, s *Session) error {
+// SaveSession stores login session
+func (r *repository) SaveSession(ctx context.Context, session *Session) error {
 	query := `
 		INSERT INTO sessions (user_id, refresh_token_id, user_agent, ip_address, is_current, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -238,92 +246,68 @@ func (r *repository) SaveSession(ctx context.Context, s *Session) error {
 	return r.db.QueryRow(
 		ctx,
 		query,
-		s.UserID,
-		s.RefreshTokenID,
-		s.UserAgent,
-		s.IPAddress,
-		s.IsCurrent,
-		s.CreatedAt,
-	).Scan(&s.ID)
+		session.UserID,
+		session.RefreshTokenID,
+		session.UserAgent,
+		session.IPAddress,
+		session.IsCurrent,
+		session.CreatedAt,
+	).Scan(&session.ID)
 }
 
-func (r *repository) GetSessionsByID(ctx context.Context, userID string) ([]*Session, error) {
-	rows, err := r.db.Query(
-		ctx,
-		`SELECT id, user_id, refresh_token_id, user_agent, ip_address, is_current, created_at
-		 FROM sessions WHERE user_id = $1`,
-		userID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var sessions []*Session
-	for rows.Next() {
-		s := &Session{}
-		if err := rows.Scan(
-			&s.ID,
-			&s.UserID,
-			&s.RefreshTokenID,
-			&s.UserAgent,
-			&s.IPAddress,
-			&s.IsCurrent,
-			&s.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		sessions = append(sessions, s)
-	}
-
-	return sessions, nil
-}
-
+// DeleteSessionByToken removes session by refresh token
 func (r *repository) DeleteSessionByToken(ctx context.Context, refreshTokenID string) error {
-	_, err := r.db.Exec(
+	cmd, err := r.db.Exec(
 		ctx,
 		`DELETE FROM sessions WHERE refresh_token_id = $1`,
 		refreshTokenID,
 	)
-	return err
+
+	if err != nil {
+		return err
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return errors.New("session not found")
+	}
+
+	return nil
 }
 
-func (r *repository) DeleteSessionByID(ctx context.Context, id string) error {
-	_, err := r.db.Exec(
-		ctx,
-		`DELETE FROM sessions WHERE id = $1`,
-		id,
-	)
-	return err
-}
-
-/* ===================== PASSWORD RESET & EMAIL ===================== */
-
+// StoreResetToken invalidates old tokens and creates a new one
 func (r *repository) StoreResetToken(ctx context.Context, userID, token string) error {
 	now := time.Now()
-	exp := now.Add(time.Hour)
 
+	// Mark previous tokens as used
 	_, err := r.db.Exec(
 		ctx,
-		`UPDATE password_resets SET used = true WHERE user_id = $1`,
+		`UPDATE password_resets
+		 SET used = true, updated_at = $2
+		 WHERE user_id = $1 AND used = false`,
 		userID,
+		now,
 	)
 	if err != nil {
 		return err
 	}
 
+	// Insert new reset token
 	_, err = r.db.Exec(
 		ctx,
-		`INSERT INTO password_resets (user_id, token, expires_at, used, created_at)
-		 VALUES ($1, $2, $3, false, $4)`,
+		`INSERT INTO password_resets (user_id, token, expires_at, used, created_at, updated_at)
+		 VALUES ($1, $2, $3, false, $4, $5)`,
 		userID,
 		token,
-		exp,
+		now.Add(time.Hour),
+		now,
 		now,
 	)
+
 	return err
 }
 
+
+// FindByResetToken finds user using reset token
 func (r *repository) FindByResetToken(ctx context.Context, token string) (*User, error) {
 	query := `
 		SELECT u.id, u.email, u.password_hash, u.role, u.email_verified, u.created_at, u.updated_at
@@ -343,86 +327,18 @@ func (r *repository) FindByResetToken(ctx context.Context, token string) (*User,
 		&user.UpdatedAt,
 	)
 
-	if err != nil {
-		return nil, err
-	}
-	return user, nil
+	return user, err
 }
 
+// ClearResetToken marks reset token as used
 func (r *repository) ClearResetToken(ctx context.Context, userID string) error {
 	_, err := r.db.Exec(
 		ctx,
-		`UPDATE password_resets SET used = true WHERE user_id = $1`,
+		`UPDATE password_resets SET used = true, updated_at = $2
+		 WHERE user_id = $1 AND used = false`,
 		userID,
-	)
-	return err
-}
-
-func (r *repository) StoreEmailVerification(
-	ctx context.Context,
-	userID, token string,
-	expiresAt time.Time,
-) error {
-	_, err := r.db.Exec(
-		ctx,
-		`INSERT INTO email_verifications (user_id, token, expires_at, created_at, used)
-		 VALUES ($1, $2, $3, $4, false)`,
-		userID,
-		token,
-		expiresAt,
 		time.Now(),
 	)
+
 	return err
-}
-
-func (r *repository) VerifyEmailToken(ctx context.Context, token string) (*User, error) {
-	query := `
-		SELECT u.id, u.email, u.password_hash, u.role, u.email_verified, u.created_at, u.updated_at
-		FROM users u
-		JOIN email_verifications ev ON ev.user_id = u.id
-		WHERE ev.token = $1 AND ev.used = false AND ev.expires_at > NOW()
-	`
-
-	user := &User{}
-	err := r.db.QueryRow(ctx, query, token).Scan(
-		&user.ID,
-		&user.Email,
-		&user.PasswordHash,
-		&user.Role,
-		&user.EmailVerified,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-	return user, nil
-}
-
-func (r *repository) MarkEmailVerified(ctx context.Context, userID, token string) error {
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	if _, err := tx.Exec(
-		ctx,
-		`UPDATE users SET email_verified = true WHERE id = $1`,
-		userID,
-	); err != nil {
-		return err
-	}
-
-	if _, err := tx.Exec(
-		ctx,
-		`UPDATE email_verifications SET used = true WHERE user_id = $1 AND token = $2`,
-		userID,
-		token,
-	); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
 }

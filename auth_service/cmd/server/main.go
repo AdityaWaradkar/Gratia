@@ -2,54 +2,46 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
-	"os"
 
 	"github.com/adityawaradkar/gratia/auth_service/internal/auth"
 	"github.com/adityawaradkar/gratia/auth_service/internal/config"
-	httpServer "github.com/adityawaradkar/gratia/auth_service/internal/server"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/adityawaradkar/gratia/auth_service/internal/db"
+	"github.com/adityawaradkar/gratia/auth_service/internal/logger"
+	"github.com/adityawaradkar/gratia/auth_service/internal/server"
 )
 
 func main() {
 	// Load configuration
-	config.LoadConfig()
+	config.Load()
 
-	// Logger
-	logger := log.New(os.Stdout, "[AUTH] ", log.LstdFlags|log.Lshortfile)
+	// Initialize logger
+	log := logger.New("AUTH")
 
-	// Database
-	dbPool, err := pgxpool.New(context.Background(), config.GetDatabaseURL())
-	if err != nil {
-		logger.Fatalf("database connection failed: %v", err)
-	}
+	// Connect to database
+	dbPool := db.Connect(context.Background(), config.AppConfig.DatabaseURL)
 	defer dbPool.Close()
 
-	// Repository
+	// Initialize repository
 	repo := auth.NewRepository(dbPool)
 
-	// Service
+	// Initialize service
 	service := auth.NewService(
 		repo,
-		config.GetJWTSecret(),
-		config.GetAccessTokenTTL(),
-		config.GetRefreshTokenTTL(),
-		config.AppConfig.UserServiceURL,
-		logger,
+		config.AppConfig.JWTSecret,
+		config.AppConfig.AccessTokenTTL,
+		config.AppConfig.RefreshTokenTTL,
 	)
 
-	// Handler
-	handler := auth.NewHandler(service, dbPool)
+	// Initialize handler
+	handler := auth.NewHandler(service)
 
-	// Router
-	router := httpServer.RegisterRoutes(handler)
+	// Register HTTP routes
+	router := server.RegisterRoutes(handler)
 
-	// Server
-	address := ":" + config.GetPort()
-	logger.Printf("auth service running on %s", address)
-
-	if err := http.ListenAndServe(address, router); err != nil {
-		logger.Fatalf("server stopped: %v", err)
+	// Start HTTP server
+	log.Printf("auth service running on port %s", config.AppConfig.Port)
+	if err := http.ListenAndServe(":"+config.AppConfig.Port, router); err != nil {
+		log.Fatalf("server failed: %v", err)
 	}
 }

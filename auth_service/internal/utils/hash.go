@@ -1,22 +1,23 @@
 package utils
 
-import (
-	"errors"
+import "golang.org/x/crypto/bcrypt"
 
-	"golang.org/x/crypto/bcrypt"
-)
-
+// HashPassword hashes a plain text password
 func HashPassword(password string) (string, error) {
-	if password == "" {
-		return "", errors.New("password cannot be empty")
-	}
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword(
+		[]byte(password),
+		bcrypt.DefaultCost,
+	)
 	if err != nil {
 		return "", err
 	}
-	return string(bytes), nil
+	return string(hash), nil
 }
 
-func VerifyPassword(hashed, password string) error {
-	return bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password))
+// ComparePassword compares password with hash
+func ComparePassword(hash, password string) error {
+	return bcrypt.CompareHashAndPassword(
+		[]byte(hash),
+		[]byte(password),
+	)
 }

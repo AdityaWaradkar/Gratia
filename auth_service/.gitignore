@@ -4,9 +4,9 @@ build/
 dist/
 *.exe
 *.out
+*.test
 
-# Go module cache
-/pkg/
+# Go modules
 vendor/
 
 # IDE and editor files
@@ -30,3 +30,4 @@ coverage.out
 
 # Temp files
 tmp/
+*.tmp

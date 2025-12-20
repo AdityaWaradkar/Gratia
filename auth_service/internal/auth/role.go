@@ -1,8 +1,13 @@
 package auth
 
-// Role constants for Gratia platform
+// Roles handled ONLY by auth service
 const (
-	RoleDonor = "DONOR"
-	RoleNGO   = "NGO"
-	RoleAdmin = "ADMIN"
+	RoleUser  = "USER"  // Default authenticated user
+	RoleAdmin = "ADMIN" // Platform administrator
 )
+
+// ValidRoles allowed in auth service
+var ValidRoles = map[string]bool{
+	RoleUser:  true,
+	RoleAdmin: true,
+}

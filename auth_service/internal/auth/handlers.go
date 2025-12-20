@@ -3,19 +3,18 @@ package auth
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/adityawaradkar/gratia/auth_service/internal/middleware"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Handler handles HTTP requests
 type Handler struct {
 	service *Service
-	db      *pgxpool.Pool
 }
 
-func NewHandler(service *Service, db *pgxpool.Pool) *Handler {
-	return &Handler{service: service, db: db}
+// NewHandler creates auth handler
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
 }
 
 /* ===================== REQUEST MODELS ===================== */
@@ -40,98 +39,91 @@ type ForgotPasswordRequest struct {
 }
 
 type ResetPasswordRequest struct {
-	ResetToken  string `json:"resetToken"`
+	Token       string `json:"token"`
 	NewPassword string `json:"newPassword"`
-}
-
-type JSONError struct {
-	Message string `json:"message"`
 }
 
 /* ===================== HELPERS ===================== */
 
-func writeJSONError(w http.ResponseWriter, status int, msg string) {
+func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(JSONError{Message: msg})
+	_ = json.NewEncoder(w).Encode(data)
 }
 
-/* ===================== AUTH ===================== */
+func writeError(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, map[string]string{"message": message})
+}
 
+/* ===================== AUTH ROUTES ===================== */
+
+// RegisterUser handles user signup
 func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	if ValidateEmail(req.Email) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid email")
+	if err := ValidateEmail(req.Email); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if ValidatePassword(req.Password) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid password")
+	if err := ValidatePassword(req.Password); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	role := strings.ToUpper(req.Role)
 
 	callerRole := middleware.UserRole(r.Context())
-	if callerRole == "" {
-		callerRole = RoleDonor
-	}
 
 	user, err := h.service.RegisterUser(
 		r.Context(),
 		RegisterInput{
 			Email:    req.Email,
 			Password: req.Password,
-			Role:     role,
+			Role:     req.Role,
 		},
 		callerRole,
 	)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(user)
+	writeJSON(w, http.StatusCreated, user)
 }
 
+// LoginUser handles login
 func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if ValidateEmail(req.Email) != nil || ValidatePassword(req.Password) != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid credentials")
+		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	tokens, err := h.service.LoginUser(
 		r.Context(),
-		LoginInput{Email: req.Email, Password: req.Password},
+		LoginInput{
+			Email:    req.Email,
+			Password: req.Password,
+		},
 		r.UserAgent(),
 		r.RemoteAddr,
 	)
 	if err != nil {
-		writeJSONError(w, http.StatusUnauthorized, err.Error())
+		writeError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(tokens)
+	writeJSON(w, http.StatusOK, tokens)
 }
 
+// RefreshTokens issues new tokens
 func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -142,97 +134,92 @@ func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 		r.RemoteAddr,
 	)
 	if err != nil {
-		writeJSONError(w, http.StatusUnauthorized, err.Error())
+		writeError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(tokens)
+	writeJSON(w, http.StatusOK, tokens)
 }
 
+// Logout revokes refresh token
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if err := h.service.Logout(r.Context(), req.RefreshToken); err != nil {
-		writeJSONError(w, http.StatusUnauthorized, "invalid refresh token")
+		writeError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.UserID(r.Context())
-	if userID == "" {
-		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
+/* ===================== PASSWORD RESET ===================== */
 
-	user, err := h.service.GetUserByID(r.Context(), userID)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "user not found")
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(user)
-}
-
-/* ===================== PASSWORD ===================== */
-
+// ForgotPassword generates reset token
 func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req ForgotPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	token, err := h.service.GenerateResetToken(r.Context(), req.Email)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	writeJSON(w, http.StatusOK, map[string]string{
 		"resetToken": token,
-		"note":       "This would be emailed in production",
 	})
 }
 
+// ResetPassword updates password
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req ResetPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if err := h.service.ResetPassword(
 		r.Context(),
-		req.ResetToken,
+		req.Token,
 		req.NewPassword,
 	); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid reset token")
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-/* ===================== HEALTH ===================== */
+/* ===================== INTERNAL ===================== */
 
-func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	if err := h.db.Ping(r.Context()); err != nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte(`{"status":"error","details":"database unreachable"}`))
+// GetCurrentUser returns authenticated user
+func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserID(r.Context())
+	if userID == "" {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+	user, err := h.service.GetUserByID(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, user)
+}
+
+//Health Check
+func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status": "ok",
+	})
 }

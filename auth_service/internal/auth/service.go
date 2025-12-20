@@ -1,12 +1,8 @@
 package auth
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"log"
-	"net/http"
 	"strings"
 	"time"
 
@@ -16,93 +12,80 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-/* ===================== SERVICE ===================== */
-
+// Service contains business logic for auth
 type Service struct {
-	repo Repo
-
+	repo       Repository
 	jwtSecret  []byte
 	accessTTL  time.Duration
 	refreshTTL time.Duration
-
-	userServiceURL string
-	httpClient     *http.Client
-	logger         *log.Logger
 }
 
-func NewService(
-	repo Repo,
-	jwtSecret string,
-	accessTTL, refreshTTL time.Duration,
-	userServiceURL string,
-	logger *log.Logger,
-) *Service {
-	return &Service{
-		repo:           repo,
-		jwtSecret:      []byte(jwtSecret),
-		accessTTL:      accessTTL,
-		refreshTTL:     refreshTTL,
-		userServiceURL: userServiceURL,
-		httpClient:     &http.Client{Timeout: 5 * time.Second},
-		logger:         logger,
-	}
-}
-
-/* ===================== INPUT MODELS ===================== */
-
+// RegisterInput represents registration input
 type RegisterInput struct {
 	Email    string
 	Password string
 	Role     string
 }
 
+// LoginInput represents login input
 type LoginInput struct {
 	Email    string
 	Password string
 }
 
+// TokenPair represents JWT tokens
 type TokenPair struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
 
-/* ===================== ROLE NORMALIZATION ===================== */
-
-// Converts Auth roles → User Service roles
-func normalizeUserServiceRole(role string) string {
-	switch role {
-	case RoleDonor:
-		return "Donor"
-	case RoleNGO:
-		return "NGO"
-	case RoleAdmin:
-		return "Admin"
-	default:
-		return "Donor"
+// NewService creates auth service
+func NewService(
+	repo Repository,
+	jwtSecret string,
+	accessTTL time.Duration,
+	refreshTTL time.Duration,
+) *Service {
+	return &Service{
+		repo:       repo,
+		jwtSecret:  []byte(jwtSecret),
+		accessTTL:  accessTTL,
+		refreshTTL: refreshTTL,
 	}
 }
 
 /* ===================== AUTH ===================== */
 
+// RegisterUser creates a new authenticated account
 func (s *Service) RegisterUser(
 	ctx context.Context,
 	input RegisterInput,
 	callerRole string,
 ) (*User, error) {
 
-	now := time.Now()
 	email := strings.TrimSpace(strings.ToLower(input.Email))
-
 	if email == "" || input.Password == "" {
 		return nil, errors.New("email and password required")
 	}
 
-	existing, _ := s.repo.GetUserByEmail(ctx, email)
-	if existing != nil {
+	if _, err := s.repo.GetUserByEmail(ctx, email); err == nil {
 		return nil, errors.New("user already exists")
 	}
 
-	passwordHash, err := bcrypt.GenerateFromPassword(
+	role := strings.ToUpper(input.Role)
+	if role == "" {
+		role = RoleUser
+	}
+
+	if !ValidRoles[role] {
+		return nil, errors.New("invalid role")
+	}
+
+	if role == RoleAdmin && callerRole != RoleAdmin {
+		return nil, errors.New("unauthorized role assignment")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword(
 		[]byte(input.Password),
 		bcrypt.DefaultCost,
 	)
@@ -110,58 +93,43 @@ func (s *Service) RegisterUser(
 		return nil, errors.New("failed to hash password")
 	}
 
-	role := strings.ToUpper(input.Role)
-	if role == "" {
-		role = RoleDonor
-	} else {
-		if role != RoleDonor && role != RoleNGO && callerRole != RoleAdmin {
-			return nil, errors.New("unauthorized role assignment")
-		}
-	}
-
 	user := &User{
 		Email:         email,
-		PasswordHash:  string(passwordHash),
+		PasswordHash:  string(hash),
 		Role:          role,
 		EmailVerified: false,
-		CreatedAt:     now,
-		UpdatedAt:     now,
 	}
 
 	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return nil, err
 	}
 
-	// Async, best-effort user-profile creation
-	go s.notifyUserService(
-		user.ID,
-		normalizeUserServiceRole(role),
-	)
-
 	return user, nil
 }
 
+// LoginUser authenticates user and issues tokens
 func (s *Service) LoginUser(
 	ctx context.Context,
 	input LoginInput,
-	userAgent, ip string,
+	userAgent string,
+	ip string,
 ) (*TokenPair, error) {
 
 	email := strings.TrimSpace(strings.ToLower(input.Email))
 	if email == "" || input.Password == "" {
-		return nil, errors.New("email or password missing")
+		return nil, errors.New("invalid credentials")
 	}
 
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
-		return nil, errors.New("invalid email or password")
+		return nil, errors.New("invalid credentials")
 	}
 
 	if err := bcrypt.CompareHashAndPassword(
 		[]byte(user.PasswordHash),
 		[]byte(input.Password),
 	); err != nil {
-		return nil, errors.New("invalid email or password")
+		return nil, errors.New("invalid credentials")
 	}
 
 	accessToken, err := s.generateAccessToken(user)
@@ -178,7 +146,7 @@ func (s *Service) LoginUser(
 
 	rt := &RefreshToken{
 		UserID:    user.ID,
-		TokenHash: refreshToken,
+		Token: refreshToken,
 		ExpiresAt: now.Add(s.refreshTTL),
 		Revoked:   false,
 		CreatedAt: now,
@@ -197,9 +165,7 @@ func (s *Service) LoginUser(
 		CreatedAt:      now,
 	}
 
-	if err := s.repo.SaveSession(ctx, session); err != nil {
-		return nil, err
-	}
+	_ = s.repo.SaveSession(ctx, session)
 
 	return &TokenPair{
 		AccessToken:  accessToken,
@@ -207,16 +173,17 @@ func (s *Service) LoginUser(
 	}, nil
 }
 
+// RefreshTokens rotates refresh token and issues new access token
 func (s *Service) RefreshTokens(
 	ctx context.Context,
-	refreshToken, userAgent, ip string,
+	refreshToken string,
+	userAgent string,
+	ip string,
 ) (*TokenPair, error) {
 
-	now := time.Now()
-
 	rt, err := s.repo.GetRefreshToken(ctx, refreshToken)
-	if err != nil || rt.Revoked || rt.ExpiresAt.Before(now) {
-		return nil, errors.New("invalid or expired refresh token")
+	if err != nil || rt.Revoked || rt.ExpiresAt.Before(time.Now()) {
+		return nil, errors.New("invalid refresh token")
 	}
 
 	user, err := s.repo.GetUserByID(ctx, rt.UserID)
@@ -234,19 +201,19 @@ func (s *Service) RefreshTokens(
 		return nil, err
 	}
 
+	now := time.Now()
+
 	newRT := &RefreshToken{
 		UserID:    user.ID,
-		TokenHash: newRefreshToken,
+		Token: newRefreshToken,
 		ExpiresAt: now.Add(s.refreshTTL),
 		Revoked:   false,
 		CreatedAt: now,
 	}
 
-	if err := s.repo.SaveRefreshToken(ctx, newRT); err != nil {
-		return nil, err
-	}
-
 	_ = s.repo.RevokeRefreshToken(ctx, rt.ID)
+	_ = s.repo.DeleteSessionByToken(ctx, rt.ID)
+	_ = s.repo.SaveRefreshToken(ctx, newRT)
 
 	session := &Session{
 		UserID:         user.ID,
@@ -265,25 +232,26 @@ func (s *Service) RefreshTokens(
 	}, nil
 }
 
+// Logout revokes refresh token
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 	rt, err := s.repo.GetRefreshToken(ctx, refreshToken)
 	if err != nil {
 		return errors.New("invalid token")
 	}
 
-	if err := s.repo.RevokeRefreshToken(ctx, rt.ID); err != nil {
-		return err
-	}
+	_ = s.repo.RevokeRefreshToken(ctx, rt.ID)
+	_ = s.repo.DeleteSessionByToken(ctx, rt.ID)
 
-	return s.repo.DeleteSessionByToken(ctx, rt.ID)
+	return nil
 }
 
 /* ===================== PASSWORD RESET ===================== */
 
+// GenerateResetToken creates password reset token
 func (s *Service) GenerateResetToken(ctx context.Context, email string) (string, error) {
 	user, err := s.repo.GetUserByEmail(ctx, email)
-	if err != nil || user == nil {
-		return "", errors.New("email not found")
+	if err != nil {
+		return "", errors.New("user not found")
 	}
 
 	token := uuid.NewString()
@@ -294,22 +262,24 @@ func (s *Service) GenerateResetToken(ctx context.Context, email string) (string,
 	return token, nil
 }
 
+// ResetPassword updates password using reset token
 func (s *Service) ResetPassword(
 	ctx context.Context,
-	resetToken, newPassword string,
+	resetToken string,
+	newPassword string,
 ) error {
 
 	user, err := s.repo.FindByResetToken(ctx, resetToken)
 	if err != nil {
-		return errors.New("invalid or expired reset token")
+		return errors.New("invalid reset token")
 	}
 
-	newHash, err := utils.HashPassword(newPassword)
+	hash, err := utils.HashPassword(newPassword)
 	if err != nil {
 		return err
 	}
 
-	if err := s.repo.UpdatePassword(ctx, user.ID, newHash); err != nil {
+	if err := s.repo.UpdatePassword(ctx, user.ID, hash); err != nil {
 		return err
 	}
 
@@ -318,62 +288,21 @@ func (s *Service) ResetPassword(
 
 /* ===================== INTERNAL ===================== */
 
+// GetUserByID returns user details
 func (s *Service) GetUserByID(ctx context.Context, userID string) (*User, error) {
 	return s.repo.GetUserByID(ctx, userID)
 }
 
+// generateAccessToken creates JWT access token
 func (s *Service) generateAccessToken(user *User) (string, error) {
-	now := time.Now()
-
 	claims := jwt.MapClaims{
 		"sub":   user.ID,
 		"email": user.Email,
 		"role":  user.Role,
-		"exp":   now.Add(s.accessTTL).Unix(),
-		"iat":   now.Unix(),
-		"jti":   uuid.NewString(),
+		"iat":   time.Now().Unix(),
+		"exp":   time.Now().Add(s.accessTTL).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(s.jwtSecret)
-}
-
-/* ===================== USER SERVICE INTEGRATION ===================== */
-
-func (s *Service) notifyUserService(userID, role string) {
-	s.logger.Println("calling user service to create profile for:", userID)
-
-	payload := map[string]string{
-		"user_id": userID,
-		"role":    role,
-	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		s.logger.Println("user-service marshal error:", err)
-		return
-	}
-
-	req, err := http.NewRequest(
-		http.MethodPost,
-		s.userServiceURL+"/internal/users",
-		bytes.NewBuffer(body),
-	)
-	if err != nil {
-		s.logger.Println("user-service request creation failed:", err)
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		s.logger.Println("user-service call failed:", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		s.logger.Println("user-service unexpected status:", resp.StatusCode)
-	}
 }
