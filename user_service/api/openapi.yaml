@@ -1,11 +1,167 @@
 openapi: 3.0.3
+
 info:
   title: User Service API
+  description: >
+    User Service for Gratia platform.
+    Manages donor profiles, NGO profiles, and NGO verification.
+    Authentication is handled by auth_service using JWT.
   version: 1.0.0
-  description: User profile and NGO management service for Gratia
 
 servers:
-  - url: http://localhost:8081
+  - url: /
+    description: User Service Base URL
+
+tags:
+  - name: Donor
+    description: Donor profile operations
+  - name: NGO
+    description: NGO profile operations
+  - name: Admin
+    description: Administrative actions
+  - name: Health
+    description: Service health checks
+
+paths:
+  /donors/profile:
+    post:
+      tags: [Donor]
+      summary: Create donor profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDonorProfileRequest"
+      responses:
+        "201":
+          description: Donor profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonorProfile"
+        "400":
+          description: Invalid input
+        "401":
+          description: Unauthorized
+
+  /donors/profile/me:
+    get:
+      tags: [Donor]
+      summary: Get my donor profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Donor profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonorProfile"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Profile not found
+
+  /donors/profile/me/update:
+    put:
+      tags: [Donor]
+      summary: Update my donor profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDonorProfileRequest"
+      responses:
+        "204":
+          description: Profile updated
+        "400":
+          description: Invalid input
+        "401":
+          description: Unauthorized
+
+  /ngos:
+    post:
+      tags: [NGO]
+      summary: Create NGO profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNGOProfileRequest"
+      responses:
+        "201":
+          description: NGO profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NGOProfile"
+        "400":
+          description: Invalid input
+        "401":
+          description: Unauthorized
+        "403":
+          description: Only NGO users allowed
+
+  /ngos/me:
+    get:
+      tags: [NGO]
+      summary: Get my NGO profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: NGO profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NGOProfile"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Profile not found
+
+  /admin/ngos/verify:
+    post:
+      tags: [Admin]
+      summary: Verify NGO (Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: NGO verified
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: user service healthy
 
 components:
   securitySchemes:
@@ -15,26 +171,62 @@ components:
       bearerFormat: JWT
 
   schemas:
-    UserProfile:
+    CreateDonorProfileRequest:
       type: object
+      required: [name]
       properties:
-        id:
-          type: string
-        user_id:
-          type: string
-        role:
-          type: string
-          enum: [Donor, NGO, Admin]
         name:
           type: string
         phone:
           type: string
         address:
           type: string
-        created_at:
+
+    UpdateDonorProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+
+    CreateNGOProfileRequest:
+      type: object
+      required: [organization, registrationNo]
+      properties:
+        organization:
+          type: string
+        registrationNo:
+          type: string
+
+    DonorProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        isVerified:
+          type: boolean
+        verifiedAt:
           type: string
           format: date-time
-        updated_at:
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
 
@@ -43,113 +235,25 @@ components:
       properties:
         id:
           type: string
-        user_id:
+          format: uuid
+        userId:
           type: string
         organization:
           type: string
-        registration_no:
+        registrationNo:
           type: string
         verified:
           type: boolean
-        verified_by:
+        verifiedBy:
           type: string
           nullable: true
-        verified_at:
+        verifiedAt:
           type: string
           format: date-time
           nullable: true
-        created_at:
+        createdAt:
           type: string
           format: date-time
-        updated_at:
+        updatedAt:
           type: string
           format: date-time
-
-paths:
-
-  /users/me:
-    get:
-      summary: Get current user's profile
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: User profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserProfile'
-
-    put:
-      summary: Update current user's profile
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                phone:
-                  type: string
-                address:
-                  type: string
-      responses:
-        '200':
-          description: Updated profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserProfile'
-
-  /ngos/{id}:
-    get:
-      summary: Get NGO profile by ID
-      security:
-        - BearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: NGO profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NGOProfile'
-
-  /admin/ngos/{id}/verify:
-    post:
-      summary: Verify NGO (Admin only)
-      security:
-        - BearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: NGO verified
-
-  /admin/ngos/{id}/reject:
-    post:
-      summary: Reject NGO (Admin only)
-      security:
-        - BearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: NGO rejected
