@@ -1,64 +1,225 @@
-# Go Authentication Service (`auth_service`)
+# Gratia
 
-This repository contains a modular and secure **Authentication Service** built in **Go (Golang)**. It implements a comprehensive authentication and authorization solution using JWTs, refresh tokens, and a PostgreSQL database. The service adheres to a layered architecture (Handler -> Service -> Repository) for clarity and maintainability.
+Gratia is a cloud-native backend platform designed to connect donors and NGOs for efficient surplus resource distribution.\
+The project is built using a microservices architecture with a strong focus on clean design, security, and maintainability.
 
----
+This repository represents the backend foundation of the Gratia platform.
+
+***
+
+
+## Overview
+
+Gratia follows a clear separation of concerns:
+
+- **Authentication and identity** are handled by a dedicated service.
+
+- **Domain data** such as donor and NGO profiles are handled by a separate service.
+
+- Services communicate implicitly through JWT claims rather than direct coupling.
+
+This design ensures scalability, security, and long-term maintainability.
+
+***
+
+
+## Services
+
+### Authentication Service (`auth_service`)
+
+Responsible for identity and access management.
+
+**Responsibilities**
+
+- User registration and login
+
+- JWT access and refresh token generation
+
+- Token refresh and logout
+
+- Password reset flow
+
+- Authentication middleware
+
+**Not responsible for**
+
+- Donor or NGO profile data
+
+- Business domain logic
+
+***
+
+
+### User Service (`user_service`)
+
+Responsible for domain-specific user data.
+
+**Responsibilities**
+
+- Donor profile creation and updates
+
+- NGO profile creation
+
+- Admin verification of NGO profiles
+
+- Domain validation and authorization
+
+**Not responsible for**
+
+- Authentication
+
+- Passwords
+
+- Token issuance
+
+***
+
+
+## Architecture
+
+    Client (Web / Mobile)
+            |
+            v
+    Authentication Service
+    (JWT Issuance & Validation)
+            |
+            v
+    User Service
+    (Donor & NGO Profiles)
+
+- JWT tokens issued by the authentication service are trusted by downstream services.
+
+- Each service owns its database tables and logic.
+
+- Cross-service linkage is done using `user_id` from JWT claims.
+
+***
+
+
+## Database Design
+
+- `users` table is owned by the authentication service.
+
+- `donor_profiles` and `ngo_profiles` tables are owned by the user service.
+
+- No service directly modifies another service’s data.
+
+This avoids tight coupling and accidental data corruption.
+
+***
+
 
 ## Technology Stack
 
-* **Language:** Go (Golang)
-* **Database:** PostgreSQL (via `pgxpool`)
-* **Authentication:** JWT (HS256) and Refresh Tokens
-* **Security:** `bcrypt` for password hashing
+- Language: Go
 
----
+- Database: PostgreSQL
 
-## Features
+- Authentication: JWT (Access and Refresh tokens)
 
-### 1. Core Authentication and User Management
-* **Registration & Login:** Secure creation and authentication of user accounts.
-* **JWT Generation:** Issuance of time-bound Access Tokens and persistent Refresh Tokens.
-* **Role-Based Access Control (RBAC):** Supports `USER`, `MOD`, and `ADMIN` roles, with authorization checks on privileged actions (e.g., role assignment).
-* **User Retrieval:** Endpoint to fetch the profile of the currently authenticated user.
+- Containerization: Docker
 
-### 2. Session Management
-* **Session Tracking:** Records user agent and IP address for active sessions.
-* **Token Refresh:** Securely generates new tokens and revokes old ones upon refresh.
-* **Logout & Control:** Provides mechanisms for single-session logout and retrieval/deletion of all active sessions.
+- Architecture: Microservices
 
-### 3. Recovery and Verification
-* **Password Reset Flow:** Implements secure token generation (`ForgotPassword`) and consumption (`ResetPassword`) for password recovery.
-* **Email Verification:** Functionality to generate, send (simulated), and validate email verification tokens.
+- API Style: REST
 
----
+***
 
-## API Endpoints (14 Total)
 
-The service exposes the following complete set of handler methods:
+## Project Structure
 
-| Category | Method | Handler Function | Description |
-| :--- | :--- | :--- | :--- |
-| **Authentication** | `POST` | `RegisterUser` | Creates a new user account with role assignment logic. |
-| **Authentication** | `POST` | `LoginUser` | Authenticates user and issues Access/Refresh token pair. |
-| **Authentication** | `POST` | `RefreshTokens` | Generates a new Access Token using a valid Refresh Token. |
-| **Authentication** | `POST` | `Logout` | Revokes a Refresh Token and deletes the associated session. |
-| **User Info** | `GET` | `GetCurrentUser` | Retrieves the profile details of the authenticated user. |
-| **Session Control**| `GET` | `GetSessions` | Lists all active sessions for the authenticated user. |
-| **Session Control**| `DELETE`| `DeleteSession` | Terminates a specific user session by ID. |
-| **Password Reset** | `POST` | `ForgotPassword` | Initiates password recovery by generating a reset token. |
-| **Password Reset** | `POST` | `ResetPassword` | Sets a new password using a valid reset token. |
-| **Email Verify** | `POST` | `VerifyEmail` | Consumes a token to mark the user's email as verified. |
-| **Email Verify** | `POST` | `GenerateEmailVerification` | Generates a verification token for a given email (utility). |
-| **Email Verify** | `POST` | `ResendEmailVerification` | Generates and returns a new verification token for an unverified user. |
-| **Utility** | `POST` | `ValidateTokenHandler` | Validates an Access Token and returns its claims. |
-| **Utility** | `GET` | `HealthCheck` | Checks service operational status and database connectivity. |
+    auth_service/
+      ├── cmd/
+      ├── internal/
+      │   ├── auth
+      │   ├── middleware
+      │   ├── db
+      │   └── config
+      └── api/
 
----
+    user_service/
+      ├── cmd/
+      ├── internal/
+      │   ├── user
+      │   ├── middleware
+      │   ├── db
+      │   └── config
+      └── api/
 
-## Design Principles
+Each service follows a layered structure:
 
-The service is built on the following principles:
+- Handler
 
-* **Separation of Concerns:** Business logic resides entirely within the `Service` layer, database operations in the `Repository`, and HTTP concerns in the `Handler`.
-* **Context Passing:** `context.Context` is used throughout the layers to manage timeouts and propagate request-scoped values (like `UserID` and `UserRole` from middleware).
-* **Database Transactions:** Email verification involves a transaction to ensure both the user's status is updated and the token is marked as used atomically.
+- Service
+
+- Repository
+
+***
+
+
+## Configuration
+
+Each service is configured via environment variables.
+
+Example:
+
+    PORT=8080
+    DATABASE_URL=postgresql://...
+    JWT_SECRET=your_secret
+
+Secrets are never committed to version control.
+
+***
+
+
+## API Testing
+
+All APIs are tested using Postman with a shared environment.
+
+Recommended environment variables:
+
+    AUTH_BASE_URL
+
+    USER_BASE_URL
+
+    ACCESS_TOKEN
+
+    REFRESH_TOKEN
+
+    ADMIN_ACCESS_TOKEN
+
+Tokens issued by the authentication service are reused for user service requests.
+
+***
+
+
+## Development Status
+
+- Authentication Service: Complete
+
+- User Service: Complete
+
+- Future planned services:
+
+  - Donation management
+
+  - Matching and allocation
+
+  - Notifications and events
+
+***
+
+
+## Author
+
+Aditya Waradkar\
+Backend Engineer (Go, PostgreSQL, Microservices)
+
+***
+
+
+## License
+
+This project is licensed under the MIT License.
+
+***
