@@ -6,15 +6,13 @@ import "time"
 
 // DonorProfile represents a donor in the system
 type DonorProfile struct {
-	ID         string     `json:"id"`
-	UserID     string     `json:"userId"`
-	Name       string     `json:"name"`
-	Phone      *string    `json:"phone,omitempty"`
-	Address    *string    `json:"address,omitempty"`
-	IsVerified bool       `json:"isVerified"`
-	VerifiedAt *time.Time `json:"verifiedAt,omitempty"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	UpdatedAt  time.Time  `json:"updatedAt"`
+	ID        string     `json:"id"`
+	UserID    string     `json:"userId"`
+	Name      string     `json:"name"`
+	Phone     *string    `json:"phone,omitempty"`
+	Address   *string    `json:"address,omitempty"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
 }
 
 /* ===================== NGO PROFILE ===================== */

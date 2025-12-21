@@ -36,9 +36,9 @@ func NewRepository(db *pgxpool.Pool) Repository {
 func (r *repository) CreateDonorProfile(ctx context.Context, donor *DonorProfile) error {
 	query := `
 		INSERT INTO donor_profiles (
-			user_id, name, phone, address, is_verified
+			user_id, name, phone, address
 		)
-		VALUES ($1, $2, $3, $4, false)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id, created_at, updated_at
 	`
 
@@ -61,7 +61,6 @@ func (r *repository) GetDonorProfileByUserID(ctx context.Context, userID string)
 	query := `
 		SELECT
 			id, user_id, name, phone, address,
-			is_verified, verified_at,
 			created_at, updated_at
 		FROM donor_profiles
 		WHERE user_id = $1
@@ -74,8 +73,6 @@ func (r *repository) GetDonorProfileByUserID(ctx context.Context, userID string)
 		&d.Name,
 		&d.Phone,
 		&d.Address,
-		&d.IsVerified,
-		&d.VerifiedAt,
 		&d.CreatedAt,
 		&d.UpdatedAt,
 	)
@@ -173,7 +170,7 @@ func (r *repository) GetNGOProfileByUserID(ctx context.Context, userID string) (
 	return n, nil
 }
 
-// UpdateNGOVerification verifies or un-verifies NGO
+// UpdateNGOVerification verifies NGO
 func (r *repository) UpdateNGOVerification(
 	ctx context.Context,
 	userID string,

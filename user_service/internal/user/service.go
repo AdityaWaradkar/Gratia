@@ -33,6 +33,7 @@ func (s *Service) CreateDonorProfile(
 		return nil, errors.New("unauthorized")
 	}
 
+	// Donor == USER in auth_service
 	if role != "USER" {
 		return nil, errors.New("only donor users can create donor profile")
 	}
@@ -42,11 +43,10 @@ func (s *Service) CreateDonorProfile(
 	}
 
 	donor := &DonorProfile{
-		UserID:     userID,
-		Name:       name,
-		Phone:      phone,
-		Address:    address,
-		IsVerified: false,
+		UserID:  userID,
+		Name:    name,
+		Phone:   phone,
+		Address: address,
 	}
 
 	if err := s.repo.CreateDonorProfile(ctx, donor); err != nil {
@@ -109,12 +109,13 @@ func (s *Service) CreateNGOProfile(
 	registrationNo string,
 ) (*NGOProfile, error) {
 
-	if userID == "" || role == "" {
+	if userID == "" {
 		return nil, errors.New("unauthorized")
 	}
 
-	if role != "NGO" {
-		return nil, errors.New("only NGO users can create ngo profile")
+	// Only block ADMIN if you want
+	if role != "USER" {
+		return nil, errors.New("only users can create ngo profile")
 	}
 
 	if strings.TrimSpace(organization) == "" || strings.TrimSpace(registrationNo) == "" {

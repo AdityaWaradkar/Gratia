@@ -15,36 +15,44 @@ func RegisterRoutes(handler *user.Handler) http.Handler {
 
 	mux.Handle(
 		"/donors/profile",
-		http.HandlerFunc(handler.CreateDonorProfile),
+		middleware.Auth(http.HandlerFunc(handler.CreateDonorProfile)),
 	)
 
 	mux.Handle(
 		"/donors/profile/me",
-		http.HandlerFunc(handler.GetMyDonorProfile),
+		middleware.Auth(http.HandlerFunc(handler.GetMyDonorProfile)),
 	)
 
 	mux.Handle(
 		"/donors/profile/me/update",
-		http.HandlerFunc(handler.UpdateMyDonorProfile),
+		middleware.Auth(http.HandlerFunc(handler.UpdateMyDonorProfile)),
 	)
 
 	/* ===================== NGO PROFILE ===================== */
 
 	mux.Handle(
 		"/ngos",
-		middleware.RequireRole("NGO")(http.HandlerFunc(handler.CreateNGOProfile)),
+		middleware.Auth(
+			http.HandlerFunc(handler.CreateNGOProfile),
+		),
 	)
 
 	mux.Handle(
 		"/ngos/me",
-		middleware.RequireRole("NGO")(http.HandlerFunc(handler.GetMyNGOProfile)),
+		middleware.Auth(
+			http.HandlerFunc(handler.GetMyNGOProfile),
+		),
 	)
 
 	/* ===================== ADMIN ===================== */
 
 	mux.Handle(
 		"/admin/ngos/verify",
-		middleware.RequireRole("ADMIN")(http.HandlerFunc(handler.VerifyNGO)),
+		middleware.Auth(
+			middleware.RequireRole("ADMIN")(
+				http.HandlerFunc(handler.VerifyNGO),
+			),
+		),
 	)
 
 	/* ===================== HEALTH ===================== */
