@@ -1,119 +1,299 @@
-## **Microservices**
+# Gratia – Microservices Architecture
 
----
+## Overview
 
-### 1. **Auth Service**
+Gratia is a distributed backend system designed to reduce food waste by connecting donors with NGOs.\
+The system follows a **domain-driven microservices architecture**, where each service owns a clearly defined responsibility and data model.
 
-- **Function**: User registration, login, password reset
+The architecture prioritizes:
 
-- **Responsibility**:
+- Clear service boundaries
 
-  - Issue & validate **JWT tokens**
+- Minimal coupling
 
-  - Manage roles (**Donor / NGO / Admin**)
+- Strong authorization guarantees
 
-  - Secure inter-service communication
-
-***
-
-
-### 2. **User Service**
-
-- **Function**: Manage donor, NGO, and admin profiles
-
-- **Responsibility**:
-
-  - Store profile details
-
-  - Update user info
-
-  - Handle NGO verification by Admin
+- Incremental scalability (no premature complexity)
 
 ***
 
 
-### 3. **Food Listing Service**
+## Core Design Principles
 
-- **Function**: Donors post leftover food
+- **Authentication is centralized**
 
-- **Responsibility**:
+- **Business domains are isolated**
 
-  - Create, update, delete listings
+- **Authorization is enforced at service boundaries**
 
-  - Add food details (type, quantity, expiry, location)
+- **Each service owns its database**
 
-  - Set listing availability (open, claimed, expired)
-
-***
-
-
-### 4. **Claim Service**
-
-- **Function**: NGOs claim food
-
-- **Responsibility**:
-
-  - Handle claim requests
-
-  - Assign claims to NGOs
-
-  - Update claim status (pending, picked, delivered)
+- **Services communicate via JWT claims, not shared state**
 
 ***
 
 
-### 5. **Notification Service**
+## Implemented Services
 
-- **Function**: Alerts & communication
+### 1. Auth Service
 
-- **Responsibility**:
+**Purpose**\
+Identity and access control for the entire platform.
 
-  - Notify NGOs when new food is listed nearby
+**Responsibilities**
 
-  - Notify donors when food is claimed or delivered
+- User registration
 
-  - Send emails/SMS/push messages
+- User login
+
+- Password reset
+
+- JWT issuance and validation
+
+- Global role management
+
+**Roles Managed**
+
+    USER
+
+    ADMIN
+
+**Key Notes**
+
+- JWT contains `sub` (user\_id), `role`, and email
+
+- Acts as the single source of truth for authentication
+
+- Other services trust JWTs issued by Auth Service
+
+**Out of Scope**
+
+- User profiles
+
+- Donor / NGO business logic
+
+- Domain-specific data
 
 ***
 
 
-### 6. **Admin Service**
+### 2. User Service
 
-- **Function**: Platform moderation
+**Purpose**\
+Manage domain-level user data and profiles.
 
-- **Responsibility**:
+**Responsibilities**
 
-  - Manage users (approve/reject NGOs, ban users)
+- Donor profile management
 
-  - Handle abuse reports
+- NGO profile management
 
-  - View system-wide stats
+- NGO verification workflow
+
+- Profile updates and retrieval
+
+**Domain Roles**
+
+- Donor
+
+- NGO
+
+**Authorization Model**
+
+- Auth role (`USER`, `ADMIN`) is read from JWT
+
+- Domain role (Donor / NGO) is derived from profile existence and state
+
+**Admin Capabilities**
+
+- Verify NGO profiles
+
+- Approve or reject NGO legitimacy
+
+**Key Notes**
+
+- User Service does not issue or validate tokens
+
+- Relies entirely on Auth Service JWTs
+
+- Maintains separation between identity and domain data
 
 ***
 
 
-### 7. **Analytics Service (Optional, can come later)**
+## Planned Services
 
-- **Function**: Track platform impact
+### 3. Food Service
 
-- **Responsibility**:
+**Purpose**\
+Manage food availability posted by donors.
 
-  - Generate reports (e.g., total meals donated, NGO performance)
+**Responsibilities**
 
-  - Provide dashboards/insights
+- Create food listings
+
+- Update or delete listings
+
+- Track food metadata:
+
+  - Type
+
+  - Quantity
+
+  - Expiry
+
+  - Location
+
+- Maintain food status:
+
+  - AVAILABLE
+
+  - CLAIMED
+
+  - EXPIRED
+
+**Authorization**
+
+- Only donors can create food listings
+
+- Admins may moderate listings (future)
+
+**Out of Scope**
+
+- Claim lifecycle
+
+- NGO interactions
+
+- Notifications
 
 ***
 
 
-### 8. **Gateway / API Gateway**
+### 4. Claim Service
 
-- **Function**: Single entry point for clients
+**Purpose**\
+Handle the lifecycle of food claims by NGOs.
 
-- **Responsibility**:
+**Responsibilities**
 
-  - Route requests to correct microservice
+- NGOs request food claims
 
-  - Handle rate-limiting, load balancing, authentication middleware
+- Manage claim state transitions:
 
+  - REQUESTED
+
+  - APPROVED
+
+  - PICKED\_UP
+
+  - DELIVERED
+
+  - CANCELLED
+
+- Enforce business rules:
+
+  - One active claim per food item
+
+  - Only verified NGOs can claim food
+
+**Authorization**
+
+- Only NGOs can create claims
+
+- Donors can approve or reject claims
+
+- Admins can intervene if required
+
+***
+
+
+## Deferred / Future Services
+
+### Notification Handling (Deferred)
+
+- Notifications are currently handled inline within services
+
+- Designed to be abstracted later if scale requires
+
+- Will be extracted only when:
+
+  - Multiple notification channels are introduced
+
+  - Asynchronous processing becomes necessary
+
+***
+
+
+### Analytics (Deferred)
+
+- No dedicated analytics service initially
+
+- Reporting can be generated via database queries or logs
+
+- A separate analytics service may be introduced later if needed
+
+***
+
+
+### API Gateway (Deferred)
+
+- Not required in the current phase
+
+- Services are accessed directly
+
+- Gateway may be introduced later for:
+
+  - Rate limiting
+
+  - Centralized request routing
+
+  - External client abstraction
+
+***
+
+
+## Inter-Service Communication
+
+- JWT is the primary trust mechanism
+
+- Services do not call Auth Service on every request
+
+- Authorization decisions are made locally using JWT claims
+
+- No shared databases or shared schemas
+
+***
+
+
+## Final Architecture Summary
+
+    Auth Service
+      └── Identity, JWT, Global Roles
+
+    User Service
+      ├── Donor Profiles
+      ├── NGO Profiles
+      └── NGO Verification (Admin)
+
+    Food Service
+      └── Food Inventory and Availability
+
+    Claim Service
+      └── Claim Lifecycle and Rules
+
+***
+
+
+## Architectural Status
+
+- Auth Service: Implemented
+
+- User Service: Implemented
+
+- Food Service: Next planned
+
+- Claim Service: Planned
+
+- Notifications, Analytics, Gateway: Deferred by design
 
 ***
