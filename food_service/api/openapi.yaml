@@ -1,0 +1,209 @@
+openapi: 3.0.3
+
+info:
+  title: Gratia Food Service API
+  description: |
+    Food Service manages food listings created by donors.
+    It validates donor identity via User Service internal APIs.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8082
+    description: Local development
+
+tags:
+  - name: Food Listings
+    description: Food listing management
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    FoodListing:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        donorUserId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        unit:
+          type: string
+        expiryTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [OPEN, CLAIMED, EXPIRED]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateFoodListingRequest:
+      type: object
+      required:
+        - title
+        - quantity
+        - unit
+        - expiryTime
+        - location
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        quantity:
+          type: integer
+        unit:
+          type: string
+        expiryTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+        imageUrl:
+          type: string
+
+    UpdateFoodListingRequest:
+      type: object
+      required:
+        - title
+        - quantity
+        - unit
+        - expiryTime
+        - location
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        quantity:
+          type: integer
+        unit:
+          type: string
+        expiryTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+        imageUrl:
+          type: string
+
+paths:
+  /foods:
+    post:
+      tags: [Food Listings]
+      summary: Create food listing
+      description: |
+        Creates a food listing.
+        Only authenticated donors can create listings.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFoodListingRequest'
+      responses:
+        '201':
+          description: Food listing created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FoodListing'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Only donors can create listings
+
+  /foods/open:
+    get:
+      tags: [Food Listings]
+      summary: List open food listings
+      description: Returns all OPEN food listings.
+      responses:
+        '200':
+          description: List of open food listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FoodListing'
+
+  /foods/{id}:
+    get:
+      tags: [Food Listings]
+      summary: Get food listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Food listing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FoodListing'
+        '404':
+          description: Listing not found
+
+  /foods/{id}/update:
+    put:
+      tags: [Food Listings]
+      summary: Update food listing
+      description: |
+        Allows donor to update their own OPEN food listing.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFoodListingRequest'
+      responses:
+        '204':
+          description: Updated successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Listing not found
+
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Food service healthy
