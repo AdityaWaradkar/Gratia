@@ -1,24 +1,24 @@
 # Gratia
 
-Gratia is a cloud-native backend platform designed to connect donors and NGOs for efficient surplus resource distribution.\
-The project is built using a microservices architecture with a strong focus on clean design, security, and maintainability.
+Gratia is a cloud-native backend platform designed to connect donors and NGOs for efficient and accountable redistribution of surplus resources.\
+The system is built using a **microservices architecture**, with a strong emphasis on **clean boundaries, security, and long-term maintainability**.
 
-This repository represents the backend foundation of the Gratia platform.
+This repository contains the **backend foundation** of the Gratia platform.
 
 ***
 
 
 ## Overview
 
-Gratia follows a clear separation of concerns:
+Gratia follows a strict separation of responsibilities across services:
 
-- **Authentication and identity** are handled by a dedicated service.
+- **Authentication and identity** are handled by a dedicated authentication service.
 
-- **Domain data** such as donor and NGO profiles are handled by a separate service.
+- **Domain-specific user data** (donors and NGOs) are managed by a separate user service.
 
-- Services communicate implicitly through JWT claims rather than direct coupling.
+- **Business services** validate users via service-to-service communication, not shared databases.
 
-This design ensures scalability, security, and long-term maintainability.
+This architecture avoids tight coupling, enables independent scaling, and keeps the system easy to reason about as it grows.
 
 ***
 
@@ -33,26 +33,26 @@ Responsible for identity and access management.
 
 - User registration and login
 
-- JWT access and refresh token generation
+- JWT access and refresh token issuance
 
 - Token refresh and logout
 
-- Password reset flow
+- Password reset workflows
 
 - Authentication middleware
 
-**Not responsible for**
+**Out of scope**
 
 - Donor or NGO profile data
 
-- Business domain logic
+- Business or domain logic
 
 ***
 
 
 ### User Service (`user_service`)
 
-Responsible for domain-specific user data.
+Responsible for domain-specific user information.
 
 **Responsibilities**
 
@@ -62,15 +62,40 @@ Responsible for domain-specific user data.
 
 - Admin verification of NGO profiles
 
-- Domain validation and authorization
+- Exposing internal APIs for other services to validate donor/NGO status
 
-**Not responsible for**
+**Out of scope**
 
 - Authentication
 
-- Passwords
+- Password management
 
 - Token issuance
+
+***
+
+
+### Food Service (`food_service`)
+
+Responsible for managing food listings created by donors.
+
+**Responsibilities**
+
+- Create food listings (donor-only)
+
+- List available (open) food listings
+
+- Retrieve individual listings
+
+- Update listings by the owning donor
+
+- Enforce domain rules such as expiry and status transitions
+
+**Design principles**
+
+- Never reads user data directly from another service’s database
+
+- Validates donor identity via internal APIs exposed by `user_service`
 
 ***
 
@@ -81,30 +106,33 @@ Responsible for domain-specific user data.
             |
             v
     Authentication Service
-    (JWT Issuance & Validation)
+    (JWT Issuance)
             |
             v
-    User Service
-    (Donor & NGO Profiles)
+    Downstream Services
+    (User Service, Food Service, ...)
 
 - JWT tokens issued by the authentication service are trusted by downstream services.
 
-- Each service owns its database tables and logic.
+- Each service owns its **own database schema**.
 
 - Cross-service linkage is done using `user_id` from JWT claims.
+
+- Role-specific validation (donor / NGO) is handled by the user service via internal APIs.
 
 ***
 
 
-## Database Design
+## Database Ownership
 
-- `users` table is owned by the authentication service.
+- `users` table → owned by **auth\_service**
 
-- `donor_profiles` and `ngo_profiles` tables are owned by the user service.
+- `donor_profiles`, `ngo_profiles` → owned by **user\_service**
 
-- No service directly modifies another service’s data.
+- `food_listings` → owned by **food\_service**
 
-This avoids tight coupling and accidental data corruption.
+No service directly modifies another service’s data.\
+This prevents accidental coupling and data corruption.
 
 ***
 
@@ -115,13 +143,13 @@ This avoids tight coupling and accidental data corruption.
 
 - Database: PostgreSQL
 
-- Authentication: JWT (Access and Refresh tokens)
-
-- Containerization: Docker
+- Authentication: JWT (Access & Refresh Tokens)
 
 - Architecture: Microservices
 
 - API Style: REST
+
+- Containerization: Docker
 
 ***
 
@@ -146,26 +174,36 @@ This avoids tight coupling and accidental data corruption.
       │   └── config
       └── api/
 
-Each service follows a layered structure:
+    food_service/
+      ├── cmd/
+      ├── internal/
+      │   ├── food
+      │   ├── middleware
+      │   ├── db
+      │   └── config
+      └── api/
 
-- Handler
+Each service follows a consistent layered architecture:
 
-- Service
+- Handler (HTTP layer)
 
-- Repository
+- Service (business logic)
+
+- Repository (data access)
 
 ***
 
 
 ## Configuration
 
-Each service is configured via environment variables.
+Each service is configured using environment variables.
 
 Example:
 
     PORT=8080
     DATABASE_URL=postgresql://...
     JWT_SECRET=your_secret
+    USER_SERVICE_URL=http://user_service:8081
 
 Secrets are never committed to version control.
 
@@ -176,19 +214,16 @@ Secrets are never committed to version control.
 
 All APIs are tested using Postman with a shared environment.
 
-Recommended environment variables:
+Recommended variables:
 
     AUTH_BASE_URL
-
     USER_BASE_URL
-
+    FOOD_BASE_URL
     ACCESS_TOKEN
-
     REFRESH_TOKEN
-
     ADMIN_ACCESS_TOKEN
 
-Tokens issued by the authentication service are reused for user service requests.
+Tokens issued by the authentication service are reused across services.
 
 ***
 
@@ -199,13 +234,19 @@ Tokens issued by the authentication service are reused for user service requests
 
 - User Service: Complete
 
-- Future planned services:
+- Food Service: Complete
 
-  - Donation management
+Planned services:
 
-  - Matching and allocation
+- Claim Service
 
-  - Notifications and events
+- Notification Service
+
+- Admin Service
+
+- API Gateway
+
+- Analytics and reporting
 
 ***
 
