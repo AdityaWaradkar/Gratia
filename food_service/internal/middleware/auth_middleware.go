@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/adityawaradkar/gratia/user_service/internal/config"
+	"github.com/adityawaradkar/gratia/food_service/internal/config"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -33,9 +33,6 @@ func Auth(next http.Handler) http.Handler {
 		tokenStr := parts[1]
 
 		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, jwt.ErrSignatureInvalid
-			}
 			return []byte(config.AppConfig.JWTSecret), nil
 		})
 

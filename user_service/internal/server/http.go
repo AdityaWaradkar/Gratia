@@ -11,6 +11,18 @@ import (
 func RegisterRoutes(handler *user.Handler) http.Handler {
 	mux := http.NewServeMux()
 
+	/* ===================== INTERNAL (SERVICE-TO-SERVICE) ===================== */
+
+	mux.HandleFunc(
+		"/internal/users/{id}/donor",
+		handler.GetDonorProfileInternal,
+	)
+
+	mux.HandleFunc(
+		"/internal/users/{id}/ngo",
+		handler.GetNGOProfileInternal,
+	)
+
 	/* ===================== DONOR PROFILE ===================== */
 
 	mux.Handle(

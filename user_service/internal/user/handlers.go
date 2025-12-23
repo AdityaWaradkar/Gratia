@@ -48,6 +48,42 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"message": message})
 }
 
+/* ===================== INTERNAL ===================== */
+
+// GetDonorProfileInternal returns donor profile by user ID
+func (h *Handler) GetDonorProfileInternal(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("id")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "user id required")
+		return
+	}
+
+	profile, err := h.service.GetDonorProfileByUserIDInternal(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "donor profile not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, profile)
+}
+
+// GetNGOProfileInternal returns NGO profile by user ID
+func (h *Handler) GetNGOProfileInternal(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("id")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "user id required")
+		return
+	}
+
+	profile, err := h.service.GetNGOProfileByUserIDInternal(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "ngo profile not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, profile)
+}
+
 /* ===================== DONOR PROFILE ===================== */
 
 // CreateDonorProfile creates donor profile

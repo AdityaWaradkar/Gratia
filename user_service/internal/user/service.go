@@ -7,19 +7,44 @@ import (
 	"time"
 )
 
-// Service contains business logic for user_service
 type Service struct {
 	repo Repository
 }
 
-// NewService creates a new service
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
+/* ===================== INTERNAL ===================== */
+
+// GetDonorProfileByUserIDInternal is used by other services
+func (s *Service) GetDonorProfileByUserIDInternal(
+	ctx context.Context,
+	userID string,
+) (*DonorProfile, error) {
+
+	if userID == "" {
+		return nil, errors.New("invalid user id")
+	}
+
+	return s.repo.GetDonorProfileByUserID(ctx, userID)
+}
+
+// GetNGOProfileByUserIDInternal is used by other services
+func (s *Service) GetNGOProfileByUserIDInternal(
+	ctx context.Context,
+	userID string,
+) (*NGOProfile, error) {
+
+	if userID == "" {
+		return nil, errors.New("invalid user id")
+	}
+
+	return s.repo.GetNGOProfileByUserID(ctx, userID)
+}
+
 /* ===================== DONOR PROFILE ===================== */
 
-// CreateDonorProfile creates donor profile for authenticated user
 func (s *Service) CreateDonorProfile(
 	ctx context.Context,
 	userID string,
@@ -29,13 +54,12 @@ func (s *Service) CreateDonorProfile(
 	address *string,
 ) (*DonorProfile, error) {
 
-	if userID == "" || role == "" {
+	if userID == "" {
 		return nil, errors.New("unauthorized")
 	}
 
-	// Donor == USER in auth_service
 	if role != "USER" {
-		return nil, errors.New("only donor users can create donor profile")
+		return nil, errors.New("only authenticated users can create donor profile")
 	}
 
 	if strings.TrimSpace(name) == "" {
@@ -56,20 +80,13 @@ func (s *Service) CreateDonorProfile(
 	return donor, nil
 }
 
-// GetMyDonorProfile returns donor profile of authenticated user
-func (s *Service) GetMyDonorProfile(
-	ctx context.Context,
-	userID string,
-) (*DonorProfile, error) {
-
+func (s *Service) GetMyDonorProfile(ctx context.Context, userID string) (*DonorProfile, error) {
 	if userID == "" {
 		return nil, errors.New("unauthorized")
 	}
-
 	return s.repo.GetDonorProfileByUserID(ctx, userID)
 }
 
-// UpdateMyDonorProfile updates donor profile
 func (s *Service) UpdateMyDonorProfile(
 	ctx context.Context,
 	userID string,
@@ -100,7 +117,6 @@ func (s *Service) UpdateMyDonorProfile(
 
 /* ===================== NGO PROFILE ===================== */
 
-// CreateNGOProfile creates NGO profile for NGO user
 func (s *Service) CreateNGOProfile(
 	ctx context.Context,
 	userID string,
@@ -113,9 +129,9 @@ func (s *Service) CreateNGOProfile(
 		return nil, errors.New("unauthorized")
 	}
 
-	// Only block ADMIN if you want
+	// IMPORTANT FIX: NGO is NOT a role
 	if role != "USER" {
-		return nil, errors.New("only users can create ngo profile")
+		return nil, errors.New("only authenticated users can apply as NGO")
 	}
 
 	if strings.TrimSpace(organization) == "" || strings.TrimSpace(registrationNo) == "" {
@@ -136,22 +152,15 @@ func (s *Service) CreateNGOProfile(
 	return ngo, nil
 }
 
-// GetMyNGOProfile returns NGO profile of authenticated user
-func (s *Service) GetMyNGOProfile(
-	ctx context.Context,
-	userID string,
-) (*NGOProfile, error) {
-
+func (s *Service) GetMyNGOProfile(ctx context.Context, userID string) (*NGOProfile, error) {
 	if userID == "" {
 		return nil, errors.New("unauthorized")
 	}
-
 	return s.repo.GetNGOProfileByUserID(ctx, userID)
 }
 
 /* ===================== ADMIN ===================== */
 
-// VerifyNGO allows admin to verify NGO
 func (s *Service) VerifyNGO(
 	ctx context.Context,
 	adminUserID string,
@@ -159,7 +168,7 @@ func (s *Service) VerifyNGO(
 	targetUserID string,
 ) error {
 
-	if adminUserID == "" || adminRole == "" {
+	if adminUserID == "" {
 		return errors.New("unauthorized")
 	}
 
@@ -171,10 +180,5 @@ func (s *Service) VerifyNGO(
 		return errors.New("target user id required")
 	}
 
-	return s.repo.UpdateNGOVerification(
-		ctx,
-		targetUserID,
-		true,
-		&adminUserID,
-	)
+	return s.repo.UpdateNGOVerification(ctx, targetUserID, true, &adminUserID)
 }
