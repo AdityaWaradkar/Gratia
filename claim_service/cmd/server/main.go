@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,28 +18,32 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Load configuration (fail-fast)
+	config.Load()
+	cfg := config.AppConfig
 
+	// Initialize logger
 	logr := logger.New(logger.Config{
 		Level: cfg.LogLevel,
 	})
 
 	logr.Info("starting claim service", "env", cfg.Env)
 
+	// Connect to database
 	dbConn, err := db.New()
 	if err != nil {
 		logr.Error("failed to connect to database", "err", err)
 		os.Exit(1)
 	}
 
+	// Repository
 	repo := claim.NewClaimRepository(dbConn)
 
+	// External clients
 	userClient := client.NewUserClient(cfg.UserServiceURL)
 	foodClient := client.NewFoodClient(cfg.FoodServiceURL)
 
+	// Service
 	claimService := claim.NewService(
 		dbConn,
 		repo,
@@ -48,28 +51,33 @@ func main() {
 		foodClient,
 	)
 
+	// HTTP handlers
 	claimHandler := claim.NewHandler(claimService)
 
+	// Auth middleware
 	authMiddleware := authmw.NewMiddleware(cfg.JWTSecret)
 
+	// HTTP server
 	srv := server.NewServer(
 		claimHandler,
 		authMiddleware,
 	)
 
 	httpServer := &http.Server{
-		Addr:    ":" + cfg.ServerPort,
+		Addr:    ":" + cfg.Port,
 		Handler: srv.Handler(),
 	}
 
+	// Start server
 	go func() {
-		logr.Info("http server started", "port", cfg.ServerPort)
+		logr.Info("http server started", "port", cfg.Port)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logr.Error("http server failed", "err", err)
 			os.Exit(1)
 		}
 	}()
 
+	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

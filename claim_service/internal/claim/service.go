@@ -30,7 +30,10 @@ type UserClient interface {
 }
 
 type FoodClient interface {
-	GetFoodForClaim(ctx context.Context, foodListingID string) (donorUserID string, status string, err error)
+	GetFoodForClaim(
+		ctx context.Context,
+		foodListingID string,
+	) (donorUserID string, status string, err error)
 }
 
 /*
@@ -121,11 +124,19 @@ func (s *Service) CreateClaim(
 Donor actions
 */
 
-func (s *Service) ApproveClaim(ctx context.Context, claimID, donorUserID string) error {
+func (s *Service) ApproveClaim(
+	ctx context.Context,
+	claimID string,
+	donorUserID string,
+) error {
 	return s.updateStatus(ctx, claimID, donorUserID, ActorDonor, ClaimStatusApproved)
 }
 
-func (s *Service) RejectClaim(ctx context.Context, claimID, donorUserID string) error {
+func (s *Service) RejectClaim(
+	ctx context.Context,
+	claimID string,
+	donorUserID string,
+) error {
 	return s.updateStatus(ctx, claimID, donorUserID, ActorDonor, ClaimStatusRejected)
 }
 
@@ -133,15 +144,27 @@ func (s *Service) RejectClaim(ctx context.Context, claimID, donorUserID string) 
 NGO actions
 */
 
-func (s *Service) CancelByNGO(ctx context.Context, claimID, ngoUserID string) error {
+func (s *Service) CancelByNGO(
+	ctx context.Context,
+	claimID string,
+	ngoUserID string,
+) error {
 	return s.updateStatus(ctx, claimID, ngoUserID, ActorNGO, ClaimStatusCancelled)
 }
 
-func (s *Service) MarkPickedUp(ctx context.Context, claimID, ngoUserID string) error {
+func (s *Service) MarkPickedUp(
+	ctx context.Context,
+	claimID string,
+	ngoUserID string,
+) error {
 	return s.updateStatus(ctx, claimID, ngoUserID, ActorNGO, ClaimStatusPickedUp)
 }
 
-func (s *Service) MarkDelivered(ctx context.Context, claimID, ngoUserID string) error {
+func (s *Service) MarkDelivered(
+	ctx context.Context,
+	claimID string,
+	ngoUserID string,
+) error {
 	return s.updateStatus(ctx, claimID, ngoUserID, ActorNGO, ClaimStatusDelivered)
 }
 

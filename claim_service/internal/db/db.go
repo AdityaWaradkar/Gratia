@@ -9,6 +9,12 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const (
+	maxOpenConns    = 25
+	maxIdleConns    = 25
+	connMaxLifetime = 5 * time.Minute
+)
+
 func New() (*sqlx.DB, error) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -20,9 +26,9 @@ func New() (*sqlx.DB, error) {
 		return nil, err
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxOpenConns(maxOpenConns)
+	db.SetMaxIdleConns(maxIdleConns)
+	db.SetConnMaxLifetime(connMaxLifetime)
 
 	if err := db.Ping(); err != nil {
 		return nil, err

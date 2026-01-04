@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"github.com/adityawaradkar/gratia/claim_service/internal/middleware"
 )
 
 /*
-Handler struct
+Handler
 */
 
 type Handler struct {
@@ -31,9 +33,15 @@ type createClaimRequest struct {
 Handlers
 */
 
-// CreateClaim handles NGO claim creation
+// CreateClaim allows NGO to create a claim
 func (h *Handler) CreateClaim(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	if roleFromContext(ctx) != string(ActorNGO) {
+		writeError(w, http.StatusForbidden, "only NGO can create claims")
+		return
+	}
+
 	userID := userIDFromContext(ctx)
 
 	var req createClaimRequest
@@ -51,28 +59,48 @@ func (h *Handler) CreateClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, claim)
 }
 
-// ApproveClaim handles donor approval
+// ApproveClaim allows donor to approve a claim
 func (h *Handler) ApproveClaim(w http.ResponseWriter, r *http.Request) {
+	if roleFromContext(r.Context()) != string(ActorDonor) {
+		writeError(w, http.StatusForbidden, "only donor can approve claims")
+		return
+	}
 	h.handleDonorAction(w, r, h.service.ApproveClaim)
 }
 
-// RejectClaim handles donor rejection
+// RejectClaim allows donor to reject a claim
 func (h *Handler) RejectClaim(w http.ResponseWriter, r *http.Request) {
+	if roleFromContext(r.Context()) != string(ActorDonor) {
+		writeError(w, http.StatusForbidden, "only donor can reject claims")
+		return
+	}
 	h.handleDonorAction(w, r, h.service.RejectClaim)
 }
 
-// CancelClaim handles NGO cancellation
+// CancelClaim allows NGO to cancel a claim
 func (h *Handler) CancelClaim(w http.ResponseWriter, r *http.Request) {
+	if roleFromContext(r.Context()) != string(ActorNGO) {
+		writeError(w, http.StatusForbidden, "only NGO can cancel claims")
+		return
+	}
 	h.handleNGOAction(w, r, h.service.CancelByNGO)
 }
 
-// MarkPickedUp handles NGO pickup confirmation
+// MarkPickedUp allows NGO to mark pickup
 func (h *Handler) MarkPickedUp(w http.ResponseWriter, r *http.Request) {
+	if roleFromContext(r.Context()) != string(ActorNGO) {
+		writeError(w, http.StatusForbidden, "only NGO can mark pickup")
+		return
+	}
 	h.handleNGOAction(w, r, h.service.MarkPickedUp)
 }
 
-// MarkDelivered handles NGO delivery confirmation
+// MarkDelivered allows NGO to mark delivery
 func (h *Handler) MarkDelivered(w http.ResponseWriter, r *http.Request) {
+	if roleFromContext(r.Context()) != string(ActorNGO) {
+		writeError(w, http.StatusForbidden, "only NGO can mark delivery")
+		return
+	}
 	h.handleNGOAction(w, r, h.service.MarkDelivered)
 }
 
@@ -86,6 +114,7 @@ func (h *Handler) handleDonorAction(
 	fn func(ctx context.Context, claimID, donorUserID string) error,
 ) {
 	ctx := r.Context()
+
 	userID := userIDFromContext(ctx)
 	claimID := claimIDFromContext(ctx)
 
@@ -108,6 +137,7 @@ func (h *Handler) handleNGOAction(
 	fn func(ctx context.Context, claimID, ngoUserID string) error,
 ) {
 	ctx := r.Context()
+
 	userID := userIDFromContext(ctx)
 	claimID := claimIDFromContext(ctx)
 
@@ -173,9 +203,8 @@ func writeError(w http.ResponseWriter, status int, message string) {
 Context helpers
 */
 
-// userIDFromContext extracts authenticated user id
 func userIDFromContext(ctx context.Context) string {
-	if v := ctx.Value("userID"); v != nil {
+	if v := ctx.Value(middleware.UserIDKey); v != nil {
 		if id, ok := v.(string); ok {
 			return id
 		}
@@ -183,7 +212,15 @@ func userIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-// claimIDFromContext extracts claim id injected by router
+func roleFromContext(ctx context.Context) string {
+	if v := ctx.Value(middleware.UserRoleKey); v != nil {
+		if role, ok := v.(string); ok {
+			return role
+		}
+	}
+	return ""
+}
+
 func claimIDFromContext(ctx context.Context) string {
 	if v := ctx.Value("claimID"); v != nil {
 		if id, ok := v.(string); ok {

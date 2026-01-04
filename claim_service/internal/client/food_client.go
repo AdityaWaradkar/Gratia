@@ -3,10 +3,13 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 )
+
+var ErrFoodNotFound = errors.New("food listing not found")
 
 type FoodClient struct {
 	baseURL    string
@@ -48,13 +51,22 @@ func (c *FoodClient) GetFoodForClaim(
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// continue
+	case http.StatusNotFound:
+		return "", "", ErrFoodNotFound
+	default:
 		return "", "", fmt.Errorf("food service returned status %d", resp.StatusCode)
 	}
 
 	var res foodForClaimResponse
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return "", "", err
+	}
+
+	if res.DonorUserID == "" || res.Status == "" {
+		return "", "", errors.New("invalid response from food service")
 	}
 
 	return res.DonorUserID, res.Status, nil

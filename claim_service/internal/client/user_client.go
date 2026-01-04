@@ -3,10 +3,13 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 )
+
+var ErrUserNotFound = errors.New("user not found")
 
 type UserClient struct {
 	baseURL    string
@@ -26,7 +29,11 @@ type ngoStatusResponse struct {
 	Verified bool `json:"verified"`
 }
 
-func (c *UserClient) IsNGOVerified(ctx context.Context, userID string) (bool, error) {
+func (c *UserClient) IsNGOVerified(
+	ctx context.Context,
+	userID string,
+) (bool, error) {
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -43,7 +50,12 @@ func (c *UserClient) IsNGOVerified(ctx context.Context, userID string) (bool, er
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// continue
+	case http.StatusNotFound:
+		return false, ErrUserNotFound
+	default:
 		return false, fmt.Errorf("user service returned status %d", resp.StatusCode)
 	}
 

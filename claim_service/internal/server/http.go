@@ -4,15 +4,18 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"github.com/gorilla/mux"
 
 	"github.com/adityawaradkar/gratia/claim_service/internal/claim"
 	authmw "github.com/adityawaradkar/gratia/claim_service/internal/middleware"
 )
 
+/*
+Server
+*/
+
 type Server struct {
-	router http.Handler
+	router *mux.Router
 }
 
 func NewServer(
@@ -20,35 +23,37 @@ func NewServer(
 	authMiddleware *authmw.Middleware,
 ) *Server {
 
-	r := chi.NewRouter()
+	r := mux.NewRouter()
 
-	// global middlewares
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Logger)
-
-	// health
-	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
+	// health check
+	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	})
+	}).Methods(http.MethodGet)
 
 	// protected routes
-	r.Route("/claims", func(r chi.Router) {
-		r.Use(authMiddleware.RequireAuth)
+	claimsRouter := r.PathPrefix("/claims").Subrouter()
+	claimsRouter.Use(authMiddleware.RequireAuth)
 
-		r.Post("/", claimHandler.CreateClaim)
+	claimsRouter.HandleFunc("", claimHandler.CreateClaim).
+		Methods(http.MethodPost)
 
-		r.Route("/{id}", func(r chi.Router) {
-			r.Use(claimIDMiddleware)
+	claimByID := claimsRouter.PathPrefix("/{id}").Subrouter()
+	claimByID.Use(claimIDMiddleware)
 
-			r.Post("/approve", claimHandler.ApproveClaim)
-			r.Post("/reject", claimHandler.RejectClaim)
-			r.Post("/cancel", claimHandler.CancelClaim)
-			r.Post("/pickup", claimHandler.MarkPickedUp)
-			r.Post("/deliver", claimHandler.MarkDelivered)
-		})
-	})
+	claimByID.HandleFunc("/approve", claimHandler.ApproveClaim).
+		Methods(http.MethodPost)
+
+	claimByID.HandleFunc("/reject", claimHandler.RejectClaim).
+		Methods(http.MethodPost)
+
+	claimByID.HandleFunc("/cancel", claimHandler.CancelClaim).
+		Methods(http.MethodPost)
+
+	claimByID.HandleFunc("/pickup", claimHandler.MarkPickedUp).
+		Methods(http.MethodPost)
+
+	claimByID.HandleFunc("/deliver", claimHandler.MarkDelivered).
+		Methods(http.MethodPost)
 
 	return &Server{router: r}
 }
@@ -61,11 +66,19 @@ func (s *Server) Handler() http.Handler {
 Context middleware
 */
 
+type claimIDContextKey struct{}
+
 func claimIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		claimID := chi.URLParam(r, "id")
+		vars := mux.Vars(r)
+		claimID := vars["id"]
 
-		ctx := context.WithValue(r.Context(), "claimID", claimID)
+		if claimID == "" {
+			http.Error(w, "missing claim id", http.StatusBadRequest)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), claimIDContextKey{}, claimID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -37,17 +37,29 @@ func (c Claim) IsActive() bool {
 	}
 }
 
+func (c Claim) IsTerminal() bool {
+	switch c.Status {
+	case ClaimStatusRejected, ClaimStatusCancelled, ClaimStatusDelivered:
+		return true
+	default:
+		return false
+	}
+}
+
 func (c Claim) CanTransitionTo(next ClaimStatus) bool {
 	switch c.Status {
 	case ClaimStatusRequested:
 		return next == ClaimStatusApproved ||
 			next == ClaimStatusRejected ||
 			next == ClaimStatusCancelled
+
 	case ClaimStatusApproved:
 		return next == ClaimStatusPickedUp ||
 			next == ClaimStatusCancelled
+
 	case ClaimStatusPickedUp:
 		return next == ClaimStatusDelivered
+
 	default:
 		return false
 	}
@@ -66,15 +78,6 @@ func (c Claim) CanBeModifiedBy(actor ActorRole, userID string) bool {
 		return c.NGOUserID == userID
 	case ActorDonor:
 		return c.DonorUserID == userID
-	default:
-		return false
-	}
-}
-
-func (c Claim) IsTerminal() bool {
-	switch c.Status {
-	case ClaimStatusRejected, ClaimStatusCancelled, ClaimStatusDelivered:
-		return true
 	default:
 		return false
 	}

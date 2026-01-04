@@ -73,7 +73,11 @@ func (r *claimRepository) GetByID(
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrClaimNotFound
 	}
-	return &claim, err
+	if err != nil {
+		return nil, err
+	}
+
+	return &claim, nil
 }
 
 func (r *claimRepository) GetActiveByFoodID(
@@ -95,7 +99,11 @@ func (r *claimRepository) GetActiveByFoodID(
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrClaimNotFound
 	}
-	return &claim, err
+	if err != nil {
+		return nil, err
+	}
+
+	return &claim, nil
 }
 
 func (r *claimRepository) GetByFoodID(
@@ -112,8 +120,11 @@ func (r *claimRepository) GetByFoodID(
 		ORDER BY created_at DESC
 	`
 
-	err := r.db.SelectContext(ctx, &claims, query, foodListingID)
-	return claims, err
+	if err := r.db.SelectContext(ctx, &claims, query, foodListingID); err != nil {
+		return nil, err
+	}
+
+	return claims, nil
 }
 
 func (r *claimRepository) GetByNGOUserID(
@@ -130,8 +141,11 @@ func (r *claimRepository) GetByNGOUserID(
 		ORDER BY created_at DESC
 	`
 
-	err := r.db.SelectContext(ctx, &claims, query, ngoUserID)
-	return claims, err
+	if err := r.db.SelectContext(ctx, &claims, query, ngoUserID); err != nil {
+		return nil, err
+	}
+
+	return claims, nil
 }
 
 func (r *claimRepository) UpdateStatus(
@@ -153,9 +167,14 @@ func (r *claimRepository) UpdateStatus(
 		return err
 	}
 
-	affected, _ := res.RowsAffected()
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
 	if affected == 0 {
 		return ErrClaimNotFound
 	}
+
 	return nil
 }

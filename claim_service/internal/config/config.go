@@ -1,11 +1,17 @@
 package config
 
-import "os"
+import (
+	"log"
+	"os"
 
+	"github.com/joho/godotenv"
+)
+
+// Config holds claim service configuration
 type Config struct {
 	Env string
 
-	ServerPort string
+	Port string
 
 	JWTSecret string
 
@@ -15,26 +21,40 @@ type Config struct {
 	LogLevel string
 }
 
-func Load() (*Config, error) {
-	cfg := &Config{
+// AppConfig is the loaded configuration
+var AppConfig *Config
+
+// Load reads environment variables into Config
+func Load() {
+	_ = godotenv.Load()
+
+	AppConfig = &Config{
 		Env: getEnv("ENV", "development"),
 
-		ServerPort: getEnv("SERVER_PORT", "8080"),
+		Port: getEnv("PORT", "8083"),
 
-		JWTSecret: getEnv("JWT_SECRET", ""),
+		JWTSecret: mustEnv("JWT_SECRET"),
 
-		UserServiceURL: getEnv("USER_SERVICE_URL", ""),
-		FoodServiceURL: getEnv("FOOD_SERVICE_URL", ""),
+		UserServiceURL: mustEnv("USER_SERVICE_URL"),
+		FoodServiceURL: mustEnv("FOOD_SERVICE_URL"),
 
 		LogLevel: getEnv("LOG_LEVEL", "info"),
 	}
-
-	return cfg, nil
 }
+
+/* ===================== HELPERS ===================== */
 
 func getEnv(key, defaultValue string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return defaultValue
+}
+
+func mustEnv(key string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		log.Fatalf("%s is required", key)
+	}
+	return v
 }
