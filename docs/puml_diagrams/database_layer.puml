@@ -1,0 +1,144 @@
+@startuml
+!theme plain
+
+title Gratia - Database Layer
+
+top to bottom direction
+
+' =====================================================
+' GLOBAL STYLING
+' =====================================================
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+
+skinparam nodesep 90
+skinparam ranksep 100
+
+skinparam ArrowThickness 2
+skinparam RectangleBorderThickness 2
+skinparam PackageBorderThickness 2
+skinparam DatabaseBorderThickness 2
+
+skinparam rectangle {
+    RoundCorner 12
+    FontStyle bold
+    FontSize 14
+}
+
+skinparam database {
+    FontStyle bold
+    FontSize 13
+}
+
+skinparam package {
+    FontStyle bold
+    FontSize 15
+}
+
+skinparam cloud {
+    FontStyle bold
+    FontSize 14
+}
+
+skinparam note {
+    FontSize 12
+    BorderThickness 1
+}
+
+' =====================================================
+' MICROSERVICES
+' =====================================================
+
+package "Microservices" {
+
+    rectangle "auth_service" as AUTH
+    rectangle "user_service" as USER
+    rectangle "food_service" as FOOD
+    rectangle "claim_service" as CLAIM
+
+    AUTH -[hidden]down-> USER
+    USER -[hidden]down-> FOOD
+    FOOD -[hidden]down-> CLAIM
+}
+
+' =====================================================
+' DATABASES
+' =====================================================
+
+package "Database Layer\n(Database per Service)" {
+
+    database "Auth DB" as AUTH_DB
+    database "User DB" as USER_DB
+    database "Food DB" as FOOD_DB
+    database "Claim DB" as CLAIM_DB
+
+    AUTH_DB -[hidden]down-> USER_DB
+    USER_DB -[hidden]down-> FOOD_DB
+    FOOD_DB -[hidden]down-> CLAIM_DB
+}
+
+AUTH --> AUTH_DB
+USER --> USER_DB
+FOOD --> FOOD_DB
+CLAIM --> CLAIM_DB
+
+' =====================================================
+' DATABASE HOSTING
+' =====================================================
+
+cloud "Neon PostgreSQL" as NEON
+
+NEON --> AUTH_DB
+NEON --> USER_DB
+NEON --> FOOD_DB
+NEON --> CLAIM_DB
+
+' =====================================================
+' NOTES
+' =====================================================
+
+note right of AUTH_DB
+Authentication Data
+
+- Users
+- Credentials
+- JWT Metadata
+- Roles
+end note
+
+note right of USER_DB
+User Management Data
+
+- Donor Profiles
+- NGO Profiles
+- Verification Data
+end note
+
+note right of FOOD_DB
+Inventory Data
+
+- Food Listings
+- Expiry Data
+- Availability State
+end note
+
+note right of CLAIM_DB
+Transactional Data
+
+- Claims
+- Claim Lifecycle
+- Delivery Tracking
+end note
+
+note bottom of NEON
+Managed PostgreSQL Hosting
+
+- Cloud Hosted
+- Scalable
+- Reliable
+- Managed Backups
+end note
+@enduml

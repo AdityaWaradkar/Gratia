@@ -1,0 +1,35 @@
+@startuml
+!theme plain
+skinparam linetype ortho
+skinparam shadowing false
+
+title Gratia - API Gateway Layer
+
+top to bottom direction
+
+rectangle "Frontend" as FE
+rectangle "API Gateway" as APIGW
+
+package "Microservices" {
+    rectangle "auth_service" as AUTH
+    rectangle "user_service" as USER
+    rectangle "food_service" as FOOD
+    rectangle "claim_service" as CLAIM
+}
+
+FE --> APIGW
+
+APIGW --> AUTH
+APIGW --> USER
+APIGW --> FOOD
+APIGW --> CLAIM
+
+note right of APIGW
+Responsibilities:
+- Request Routing
+- Authentication Validation
+- Rate Limiting
+- Centralized Access Point
+- Request Logging
+end note
+@enduml

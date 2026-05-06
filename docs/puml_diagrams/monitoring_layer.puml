@@ -1,0 +1,76 @@
+@startuml
+!theme plain
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 80
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+
+skinparam rectangle {
+    RoundCorner 8
+}
+
+title Gratia - Monitoring & Observability Layer
+
+top to bottom direction
+
+' =====================================================
+' APPLICATION SERVICES
+' =====================================================
+
+package "Application Services" {
+
+    rectangle "auth_service" as AUTH
+    rectangle "user_service" as USER
+    rectangle "food_service" as FOOD
+    rectangle "claim_service" as CLAIM
+
+    AUTH -[hidden]right-> USER
+    USER -[hidden]right-> FOOD
+    FOOD -[hidden]right-> CLAIM
+}
+
+' =====================================================
+' METRICS COLLECTION
+' =====================================================
+
+rectangle "Prometheus" as PROM
+
+AUTH --> PROM : Metrics
+USER --> PROM : Metrics
+FOOD --> PROM : Metrics
+CLAIM --> PROM : Metrics
+
+' =====================================================
+' VISUALIZATION
+' =====================================================
+
+rectangle "Grafana" as GRAF
+
+PROM --> GRAF : Visualize Metrics
+
+' =====================================================
+' NOTES
+' =====================================================
+
+note bottom of PROM
+Metrics Collection
+
+- Request Count
+- Error Rates
+- API Latency
+- Health Monitoring
+end note
+
+note bottom of GRAF
+Visualization Layer
+
+- Dashboards
+- System Health
+- Performance Analysis
+- Monitoring Insights
+end note
+
+@enduml

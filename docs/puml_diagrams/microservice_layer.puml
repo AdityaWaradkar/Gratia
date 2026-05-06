@@ -1,0 +1,76 @@
+@startuml
+!theme plain
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 80
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+
+skinparam rectangle {
+    RoundCorner 8
+}
+
+title Gratia - Microservices Layer
+
+top to bottom direction
+
+package "Core Services" {
+
+    rectangle "auth_service" as AUTH
+    rectangle "user_service" as USER
+    rectangle "food_service" as FOOD
+    rectangle "claim_service" as CLAIM
+
+    AUTH -[hidden]right-> USER
+    USER -[hidden]down-> FOOD
+    FOOD -[hidden]right-> CLAIM
+}
+
+' =====================================================
+' INTER-SERVICE COMMUNICATION
+' =====================================================
+
+FOOD --> USER : Validate Donor
+CLAIM --> USER : Verify NGO
+CLAIM --> FOOD : Check Availability
+
+' =====================================================
+' SERVICE NOTES
+' =====================================================
+
+note top of AUTH
+Auth Service
+
+- JWT
+- RBAC
+- Password Hashing
+- Login
+end note
+
+note top of USER
+User Service
+
+- Profiles
+- NGO Verification
+- Metadata
+end note
+
+note bottom of FOOD
+Food Service
+
+- Listings
+- Expiry
+- Availability
+- Inventory
+end note
+
+note bottom of CLAIM
+Claim Service
+
+- Lifecycle
+- Concurrency
+- Tracking
+end note
+@enduml

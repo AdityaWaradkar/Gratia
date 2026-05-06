@@ -1,0 +1,74 @@
+@startuml
+!theme plain
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 80
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+
+skinparam rectangle {
+    RoundCorner 8
+}
+
+title Gratia - Runtime Infrastructure
+
+top to bottom direction
+
+' =====================================================
+' APPLICATION SERVICES
+' =====================================================
+
+package "Application Services" {
+
+    rectangle "auth_service" as AUTH
+    rectangle "user_service" as USER
+    rectangle "food_service" as FOOD
+    rectangle "claim_service" as CLAIM
+
+    AUTH -[hidden]right-> USER
+    USER -[hidden]right-> FOOD
+    FOOD -[hidden]right-> CLAIM
+}
+
+' =====================================================
+' CONTAINERIZATION LAYER
+' =====================================================
+
+rectangle "Docker Containers" as DOCKER
+
+AUTH --> DOCKER
+USER --> DOCKER
+FOOD --> DOCKER
+CLAIM --> DOCKER
+
+' =====================================================
+' ORCHESTRATION LAYER
+' =====================================================
+
+rectangle "Kubernetes Cluster\n(Minikube / Kind)" as K8S
+
+DOCKER --> K8S
+
+' =====================================================
+' RESPONSIBILITIES
+' =====================================================
+
+note bottom of DOCKER
+Containerization Layer
+
+- Service Isolation
+- Consistent Runtime
+- Lightweight Deployment
+end note
+
+note bottom of K8S
+Orchestration Layer
+
+- Scaling
+- Self Healing
+- Service Discovery
+- Load Distribution
+end note
+@enduml

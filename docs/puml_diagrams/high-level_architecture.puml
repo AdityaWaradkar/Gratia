@@ -1,0 +1,238 @@
+@startuml
+!theme plain
+
+title Gratia - Production-Oriented Microservices Architecture
+
+top to bottom direction
+
+' =====================================================
+' GLOBAL STYLING
+' =====================================================
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+
+skinparam nodesep 90
+skinparam ranksep 100
+
+skinparam ArrowThickness 2
+skinparam RectangleBorderThickness 2
+skinparam PackageBorderThickness 2
+
+skinparam rectangle {
+    RoundCorner 12
+    FontStyle bold
+    FontSize 14
+}
+
+skinparam package {
+    FontStyle bold
+    FontSize 15
+}
+
+skinparam note {
+    BorderThickness 1
+    FontSize 12
+}
+
+skinparam database {
+    FontStyle bold
+    FontSize 13
+}
+
+skinparam cloud {
+    FontStyle bold
+    FontSize 13
+}
+
+' =====================================================
+' CLIENT LAYER
+' =====================================================
+
+package "Client Layer" {
+
+    actor Donor
+    actor NGO
+    actor Admin
+
+    rectangle "Web / Mobile Frontend" as FE
+}
+
+Donor --> FE
+NGO --> FE
+Admin --> FE
+
+' =====================================================
+' API GATEWAY
+' =====================================================
+
+rectangle "API Gateway" as APIGW
+
+FE --> APIGW
+
+' =====================================================
+' MICROSERVICES LAYER
+' =====================================================
+
+package "Microservices Layer" {
+
+    rectangle "auth_service" as AUTH
+    rectangle "user_service" as USER
+    rectangle "food_service" as FOOD
+    rectangle "claim_service" as CLAIM
+
+    AUTH -[hidden]down-> USER
+    USER -[hidden]down-> FOOD
+    FOOD -[hidden]down-> CLAIM
+}
+
+APIGW --> AUTH
+APIGW --> USER
+APIGW --> FOOD
+APIGW --> CLAIM
+
+' =====================================================
+' INTER-SERVICE COMMUNICATION
+' =====================================================
+
+FOOD --> USER : Validate Donor
+CLAIM --> USER : Verify NGO
+CLAIM --> FOOD : Check Availability
+
+' =====================================================
+' SERVICE NOTES
+' =====================================================
+
+note right of AUTH
+Authentication & Authorization
+
+- JWT Authentication
+- RBAC
+- Password Hashing
+- Login / Signup
+end note
+
+note right of USER
+User Management
+
+- Donor Profiles
+- NGO Profiles
+- NGO Verification
+- User Metadata
+end note
+
+note right of FOOD
+Food Inventory
+
+- Listings
+- Expiry Logic
+- Availability State
+- Inventory Tracking
+end note
+
+note right of CLAIM
+Claim Transaction Engine
+
+- Claim Lifecycle
+- Concurrency Control
+- Tracking
+- Delivery States
+end note
+
+' =====================================================
+' DATABASE LAYER
+' =====================================================
+
+package "Database Layer" {
+
+    database "Auth DB" as AUTH_DB
+    database "User DB" as USER_DB
+    database "Food DB" as FOOD_DB
+    database "Claim DB" as CLAIM_DB
+
+    AUTH_DB -[hidden]down-> USER_DB
+    USER_DB -[hidden]down-> FOOD_DB
+    FOOD_DB -[hidden]down-> CLAIM_DB
+}
+
+AUTH --> AUTH_DB
+USER --> USER_DB
+FOOD --> FOOD_DB
+CLAIM --> CLAIM_DB
+
+' =====================================================
+' DATABASE HOSTING
+' =====================================================
+
+cloud "Neon PostgreSQL" as NEON
+
+NEON --> AUTH_DB
+NEON --> USER_DB
+NEON --> FOOD_DB
+NEON --> CLAIM_DB
+
+' =====================================================
+' RUNTIME INFRASTRUCTURE
+' =====================================================
+
+package "Runtime Infrastructure" {
+
+    rectangle "Docker" as DOCKER
+    rectangle "Kubernetes\n(Minikube / Kind)" as K8S
+}
+
+AUTH --> DOCKER
+USER --> DOCKER
+FOOD --> DOCKER
+CLAIM --> DOCKER
+
+DOCKER --> K8S
+
+' =====================================================
+' MONITORING & OBSERVABILITY
+' =====================================================
+
+package "Monitoring & Observability" {
+
+    rectangle "Prometheus" as PROM
+    rectangle "Grafana" as GRAF
+
+    PROM -[hidden]down-> GRAF
+}
+
+AUTH --> PROM
+USER --> PROM
+FOOD --> PROM
+CLAIM --> PROM
+
+PROM --> GRAF
+
+' =====================================================
+' CI/CD PIPELINE
+' =====================================================
+
+package "CI/CD Pipeline" {
+
+    rectangle "GitHub Repository" as GIT
+    rectangle "GitHub Actions" as GHA
+    rectangle "Docker Images\n(Local / Docker Hub)" as REGISTRY
+
+    GIT -[hidden]down-> GHA
+    GHA -[hidden]down-> REGISTRY
+}
+
+GIT --> GHA
+GHA --> REGISTRY
+GHA --> K8S : Deploy Services
+
+' =====================================================
+' INFRASTRUCTURE AS CODE
+' =====================================================
+
+rectangle "Terraform\n(Infrastructure as Code)" as TF
+
+TF --> K8S
+
+@enduml

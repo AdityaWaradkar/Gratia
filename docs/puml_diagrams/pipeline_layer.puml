@@ -1,0 +1,103 @@
+@startuml
+!theme plain
+
+title Gratia - CI/CD Pipeline Layer
+
+top to bottom direction
+
+' =====================================================
+' GLOBAL STYLING
+' =====================================================
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+
+skinparam nodesep 90
+skinparam ranksep 100
+
+skinparam ArrowThickness 2
+skinparam RectangleBorderThickness 2
+skinparam PackageBorderThickness 2
+
+skinparam rectangle {
+    RoundCorner 12
+    FontStyle bold
+    FontSize 14
+}
+
+skinparam package {
+    FontStyle bold
+    FontSize 15
+}
+
+skinparam note {
+    FontSize 12
+    BorderThickness 1
+}
+
+' =====================================================
+' DEVELOPMENT FLOW
+' =====================================================
+
+package "Development Workflow" {
+
+    rectangle "Developer" as DEV
+    rectangle "GitHub Repository" as GIT
+    rectangle "GitHub Actions" as GHA
+    rectangle "Docker Images\n(Local / Docker Hub)" as REGISTRY
+    rectangle "Kubernetes Cluster\n(Minikube / Kind)" as K8S
+
+    DEV -[hidden]down-> GIT
+    GIT -[hidden]down-> GHA
+    GHA -[hidden]down-> REGISTRY
+    REGISTRY -[hidden]down-> K8S
+}
+
+' =====================================================
+' PIPELINE FLOW
+' =====================================================
+
+DEV --> GIT : Push Code
+GIT --> GHA : Trigger CI/CD Pipeline
+
+GHA --> REGISTRY : Build Docker Images
+
+REGISTRY --> K8S : Pull Images
+
+GHA --> K8S : Deploy Services
+
+' =====================================================
+' PIPELINE NOTES
+' =====================================================
+
+note right of GHA
+CI/CD Responsibilities
+
+- Run Unit Tests
+- Validate Builds
+- Build Docker Images
+- Validate K8s Manifests
+- Automate Deployments
+end note
+
+note right of REGISTRY
+Container Registry
+
+- Local Docker Images
+- Docker Hub Support
+- Versioned Images
+- Deployment Artifacts
+end note
+
+note right of K8S
+Deployment Environment
+
+- Service Deployment
+- Rolling Updates
+- Scaling
+- Runtime Orchestration
+end note
+
+@enduml
