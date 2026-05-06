@@ -1,45 +1,43 @@
-# 1. Overview
+# Overview
 
-In my system architecture, the `auth_service` acts as the centralized authentication and authorization service for the entire Gratia platform. This service is responsible for handling user authentication, JWT token management, and role-based access control across all microservices.
+The `auth_service` is the centralized authentication and authorization service of the Gratia platform. It acts as the primary security layer of the system and is responsible for managing user identity, authentication workflows, JWT token generation, and role-based access control across all microservices.
 
-The primary purpose of this service is to establish a secure identity and access management layer for the platform. Since every protected service depends on authenticated requests, the `auth_service` becomes the foundational security component of the system.
+In the overall architecture, this service establishes trust between users and backend services by ensuring that every protected request is authenticated and properly authorized before access is granted.
 
-I have intentionally designed this service to remain lightweight, stateless, and completely isolated from business-domain logic. Its responsibility is strictly limited to authentication and authorization concerns.
+The service is intentionally designed as a lightweight, stateless, and infrastructure-oriented component with strictly limited ownership boundaries. Its responsibilities are focused entirely on authentication and authorization concerns and do not include business-domain operations such as user profile management, food listing management, NGO verification, or claim lifecycle handling.
 
 ---
 
-# 2. Objectives of auth_service
+# Core Objectives
 
-The main objectives of the `auth_service` in my architecture are:
+The primary objectives of the `auth_service` are:
 
-- Authenticate platform users securely
+- Authenticate users securely
     
 - Generate and validate JWT access tokens
     
-- Enforce role-based access control (RBAC)
+- Enforce Role-Based Access Control (RBAC)
     
 - Provide reusable authentication middleware
     
 - Maintain minimal identity-related data
     
-- Establish secure trust between services
+- Establish secure inter-service trust
     
-- Serve as the centralized identity authority
+- Support stateless authentication architecture
     
 
-The service does not manage any business workflows such as food donation logic, NGO verification, or claim lifecycle management.
+The service forms the security foundation for the entire Gratia platform and is required by all protected backend services.
 
 ---
 
-# 3. Responsibilities of auth_service
+# Responsibilities
 
 The `auth_service` exclusively owns all authentication and authorization-related operations within the platform.
 
----
+## User Authentication
 
-## 3.1 User Authentication
-
-The service is responsible for validating user credentials during login operations.
+The service validates user credentials during login operations.
 
 ### Responsibilities
 
@@ -51,33 +49,29 @@ The service is responsible for validating user credentials during login operatio
     
 - Reject invalid authentication attempts
     
-- Generate access tokens after successful authentication
+- Generate JWT tokens after successful authentication
     
 
 ### Authentication Flow
 
-The authentication flow in my system works as follows:
-
-1. The client sends an email and password
+1. Client submits email and password
     
-2. The service retrieves the user record from the database
+2. Service retrieves user credentials from the database
     
-3. The stored bcrypt password hash is fetched
+3. Stored bcrypt password hash is fetched
     
-4. Secure password comparison is performed
+4. Password verification is performed securely
     
-5. If the credentials are valid, a JWT token is generated
+5. JWT token is generated upon successful authentication
     
-6. The authentication response is returned to the client
+6. Authentication response is returned to the client
     
 
-### Security Considerations
+### Security Measures
 
-To ensure proper security:
-
-- Plain-text passwords are never stored
+- Passwords are never stored in plain text
     
-- Passwords are always hashed using bcrypt
+- bcrypt is used for password hashing
     
 - Authentication errors remain generic
     
@@ -86,37 +80,35 @@ To ensure proper security:
 
 ---
 
-## 3.2 JWT Token Management
+## JWT Token Management
 
-The `auth_service` is the only service responsible for generating and validating JWT tokens.
+The `auth_service` acts as the sole authority responsible for JWT token generation and validation.
 
 ### Responsibilities
 
 - Generate signed JWT access tokens
     
-- Embed identity claims into tokens
+- Embed user identity claims into tokens
     
 - Validate token signatures
     
 - Verify token expiration
     
-- Extract authenticated user information from tokens
+- Extract authenticated user context
     
 
 ### JWT Claims
 
-The JWT token contains the following claims:
-
 |Claim|Description|
 |---|---|
 |user_id|Unique user identifier|
-|role|User authorization role|
+|role|Authorization role|
 |exp|Token expiration timestamp|
 |iat|Token issued timestamp|
 
 ### JWT Strategy
 
-I am using stateless JWT authentication because it aligns well with distributed microservices architecture. This approach eliminates the need for centralized session storage and allows services to validate requests independently.
+The platform uses stateless JWT authentication to support distributed microservices communication without centralized session storage.
 
 ### Recommended JWT Configuration
 
@@ -129,16 +121,16 @@ I am using stateless JWT authentication because it aligns well with distributed 
 
 ---
 
-## 3.3 Role-Based Access Control (RBAC)
+## Role-Based Access Control (RBAC)
 
-The `auth_service` is also responsible for enforcing authorization policies across the platform using role-based access control.
+The `auth_service` enforces authorization policies using role-based access control.
 
 ### Supported Roles
 
 |Role|Description|
 |---|---|
-|DONOR|User donating food|
-|NGO|NGO claiming food donations|
+|DONOR|Food donor|
+|NGO|Verified NGO user|
 |ADMIN|Administrative authority|
 
 ### Responsibilities
@@ -164,9 +156,9 @@ Authorization checks are performed only after successful authentication.
 
 ---
 
-## 3.4 Identity Bootstrapping
+## Identity Bootstrapping
 
-The `auth_service` is also responsible for initial system bootstrapping.
+The service is responsible for initial system bootstrapping during deployment.
 
 ### Responsibilities
 
@@ -174,28 +166,24 @@ The `auth_service` is also responsible for initial system bootstrapping.
     
 - Ensure the platform is operable after deployment
     
-- Enable first-time system administration
+- Enable initial system administration
     
 
 ### Implementation Strategy
 
-I plan to create a pre-configured admin account using database migrations during the initial deployment process. This avoids manual database manipulation and ensures the platform can be managed immediately after setup.
+A pre-configured admin account is created during database migration execution to eliminate manual database modification after deployment.
 
 ---
 
-# 4. Ownership Boundaries
-
-One of the key architectural decisions in my system is maintaining strict ownership boundaries between services.
+# Ownership Boundaries
 
 The `auth_service` only manages authentication and authorization concerns.
 
----
-
 ## Responsibilities Owned by auth_service
 
-- Login
-    
 - Signup
+    
+- Login
     
 - Password hashing
     
@@ -210,8 +198,6 @@ The `auth_service` only manages authentication and authorization concerns.
 - Authorization middleware
     
 
----
-
 ## Responsibilities Not Owned by auth_service
 
 |Responsibility|Owning Service|
@@ -224,23 +210,23 @@ The `auth_service` only manages authentication and authorization concerns.
 |Delivery tracking|`claim_service`|
 |Business workflows|Domain services|
 
-This separation helps maintain low coupling and clear service responsibilities throughout the system.
+This separation ensures low coupling and clear service ownership across the distributed system.
 
 ---
 
-# 5. Data Ownership
+# Data Ownership
 
-The `auth_service` only stores minimal identity-related data required for authentication and authorization.
+The `auth_service` maintains only minimal identity-related data required for authentication and authorization.
 
-I intentionally designed the database schema to remain security-focused and lightweight.
+The database schema is intentionally designed to remain lightweight and security-focused.
 
 ---
 
-# 6. Database Design
+# Database Design
 
-## 6.1 users Table
+## users Table
 
-The `users` table acts as the primary authentication table in the service.
+The `users` table acts as the primary authentication table.
 
 |Field|Type|Description|
 |---|---|---|
@@ -253,7 +239,7 @@ The `users` table acts as the primary authentication table in the service.
 
 ---
 
-## 6.2 Database Constraints
+## Database Constraints
 
 |Constraint|Purpose|
 |---|---|
@@ -264,9 +250,9 @@ The `users` table acts as the primary authentication table in the service.
 
 ---
 
-## 6.3 Optional refresh_tokens Table
+## Optional refresh_tokens Table
 
-For future extensibility, I may introduce a `refresh_tokens` table.
+For future extensibility, a `refresh_tokens` table may be introduced.
 
 |Field|Description|
 |---|---|
@@ -279,15 +265,13 @@ This table is optional for the initial implementation phase.
 
 ---
 
-# 7. API Responsibilities
+# API Responsibilities
 
 The `auth_service` exposes only authentication-related APIs.
 
----
+## POST /auth/signup
 
-## 7.1 POST /auth/signup
-
-This endpoint is responsible for registering new users.
+Registers new platform users.
 
 ### Request Body
 
@@ -299,17 +283,6 @@ This endpoint is responsible for registering new users.
 }
 ```
 
-### Processing Steps
-
-- Validate request input
-    
-- Verify email uniqueness
-    
-- Hash password using bcrypt
-    
-- Create user record
-    
-
 ### Response
 
 ```json
@@ -320,9 +293,9 @@ This endpoint is responsible for registering new users.
 
 ---
 
-## 7.2 POST /auth/login
+## POST /auth/login
 
-This endpoint authenticates users and issues JWT tokens.
+Authenticates users and issues JWT tokens.
 
 ### Request Body
 
@@ -344,9 +317,9 @@ This endpoint authenticates users and issues JWT tokens.
 
 ---
 
-## 7.3 GET /auth/validate
+## GET /auth/validate
 
-This endpoint validates JWT authenticity.
+Validates JWT authenticity.
 
 ### Request Headers
 
@@ -365,13 +338,11 @@ Authorization: Bearer <token>
 
 ---
 
-# 8. Middleware Responsibilities
+# Middleware Responsibilities
 
-I plan to implement reusable middleware components that can later be shared across other services.
+The `auth_service` provides reusable middleware components for authentication and authorization.
 
----
-
-## 8.1 Authentication Middleware
+## Authentication Middleware
 
 ### Responsibilities
 
@@ -388,7 +359,7 @@ I plan to implement reusable middleware components that can later be shared acro
 
 ### Request Context
 
-After successful authentication, the middleware exposes:
+Authenticated requests expose:
 
 - user_id
     
@@ -399,7 +370,7 @@ to downstream handlers.
 
 ---
 
-## 8.2 Authorization Middleware
+## Authorization Middleware
 
 ### Responsibilities
 
@@ -414,15 +385,11 @@ to downstream handlers.
 
 ---
 
-# 9. Security Requirements
+# Security Requirements
 
-Security is the most critical concern of the `auth_service`.
+Security is the primary concern of the `auth_service`.
 
----
-
-## 9.1 Password Security
-
-### Security Measures
+## Password Security
 
 - bcrypt hashing only
     
@@ -433,11 +400,7 @@ Security is the most critical concern of the `auth_service`.
 - No password logging
     
 
----
-
-## 9.2 Token Security
-
-### Security Measures
+## Token Security
 
 - Strong JWT signing secret
     
@@ -448,11 +411,7 @@ Security is the most critical concern of the `auth_service`.
 - Expiration enforcement
     
 
----
-
-## 9.3 API Security
-
-### Security Measures
+## API Security
 
 - Input validation
     
@@ -465,11 +424,11 @@ Security is the most critical concern of the `auth_service`.
 
 ---
 
-# 10. Inter-Service Authentication Strategy
+# Inter-Service Authentication Strategy
 
-Other services in the platform depend on JWT tokens generated by the `auth_service`.
+Other services depend on JWT tokens issued by the `auth_service`.
 
-I plan to use local JWT validation within each service using the shared signing secret.
+The platform uses local JWT validation within each service using the shared signing secret.
 
 ### Advantages
 
@@ -482,19 +441,19 @@ I plan to use local JWT validation within each service using the shared signing 
 - Stateless request processing
     
 
-This approach aligns better with production-grade distributed architectures.
+This approach aligns with production-oriented distributed architectures.
 
 ---
 
-# 11. Scalability Characteristics
+# Scalability Characteristics
 
-The `auth_service` is intentionally designed to remain stateless.
+The `auth_service` is intentionally designed as a stateless service.
 
-### Design Implications
+### Design Characteristics
 
 - No session storage
     
-- No in-memory user state
+- No in-memory authentication state
     
 - Horizontal scalability support
     
@@ -505,11 +464,11 @@ JWT tokens act as the portable authentication context across requests.
 
 ---
 
-# 12. Reliability Requirements
+# Reliability Requirements
 
 Since the `auth_service` acts as the central authentication authority, it becomes a critical system dependency.
 
-If this service becomes unavailable:
+If the service becomes unavailable:
 
 - Users cannot authenticate
     
@@ -531,9 +490,9 @@ If this service becomes unavailable:
 
 ---
 
-# 13. Recommended Project Structure
+# Recommended Project Structure
 
-I plan to follow Clean / Hexagonal Architecture principles for structuring the service.
+The service follows Clean / Hexagonal Architecture principles.
 
 ```text
 /auth_service
@@ -552,7 +511,7 @@ I plan to follow Clean / Hexagonal Architecture principles for structuring the s
 
 ---
 
-# 14. Future Extensibility
+# Future Extensibility
 
 The architecture is designed to support future enhancements without major redesign.
 
@@ -572,31 +531,3 @@ Potential future improvements include:
     
 
 ---
-
-# 15. Conclusion
-
-The `auth_service` acts as the foundational security component of the Gratia platform.
-
-Its responsibilities are intentionally limited to:
-
-- Authentication
-    
-- Authorization
-    
-- Token management
-    
-- Identity validation
-    
-
-I have intentionally designed the service to remain:
-
-- Stateless
-    
-- Lightweight
-    
-- Secure
-    
-- Architecturally isolated from business logic
-    
-
-This separation allows the service to function as a stable and scalable authentication layer for the entire microservices ecosystem.
