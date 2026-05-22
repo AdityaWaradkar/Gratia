@@ -1,30 +1,39 @@
-# =========================
-# Build stage
-# =========================
-FROM golang:1.24-alpine AS builder
+# ==============================
+# Build Stage
+# ==============================
 
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /app
+
+# Install git
 RUN apk add --no-cache git
 
-WORKDIR /app
-
+# Copy go mod files
 COPY go.mod go.sum ./
+
+# Download dependencies
 RUN go mod download
 
+# Copy source code
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -o user-service ./cmd/server
+# Build application
+RUN go build -o user_service ./cmd/main.go
 
-# =========================
-# Runtime stage
-# =========================
-FROM gcr.io/distroless/base-debian12
+# ==============================
+# Runtime Stage
+# ==============================
 
-WORKDIR /app
+FROM alpine:latest
 
-COPY --from=builder /app/user-service /app/user-service
+WORKDIR /root/
 
+# Copy binary from builder
+COPY --from=builder /app/user_service .
+
+# Expose application port
 EXPOSE 8081
 
-USER nonroot:nonroot
-ENTRYPOINT ["/app/user-service"]
+# Run application
+CMD ["./user_service"]

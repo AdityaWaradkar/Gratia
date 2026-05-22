@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS donor_profiles;

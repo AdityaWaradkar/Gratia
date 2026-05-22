@@ -1,33 +1,50 @@
-# Go build output
-bin/
-build/
-dist/
-*.exe
-*.out
-*.test
+# ==============================
+# Environment Files
+# ==============================
 
-# Go modules
-vendor/
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-
-# Logs
-*.log
-
-# Environment files
 .env
-.env.local
-.env.*.local
 
-# System files
-.DS_Store
+# ==============================
+# Binaries
+# ==============================
 
-# Coverage files
+user_service
+
+*.exe
+*.dll
+*.so
+*.dylib
+
+# ==============================
+# Go
+# ==============================
+
+vendor/
 coverage.out
 
-# Temp files
+# ==============================
+# IDE
+# ==============================
+
+.vscode/
+.idea/
+
+# ==============================
+# OS Files
+# ==============================
+
+.DS_Store
+Thumbs.db
+
+# ==============================
+# Logs
+# ==============================
+
+*.log
+
+# ==============================
+# Temp Files
+# ==============================
+
 tmp/
-*.tmp
+temp/

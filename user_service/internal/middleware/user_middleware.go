@@ -12,6 +12,7 @@ const (
 	UserRoleKey contextKey = "user_role"
 )
 
+
 // UserID returns authenticated user id
 func UserID(ctx context.Context) string {
 	v, _ := ctx.Value(UserIDKey).(string)
@@ -27,16 +28,18 @@ func UserRole(ctx context.Context) string {
 // RequireRole allows only a specific role
 func RequireRole(role string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
+
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 			userRole := UserRole(r.Context())
+
 			if userRole == "" {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				writeError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 
 			if userRole != role {
-				http.Error(w, "forbidden", http.StatusForbidden)
+				writeError(w, http.StatusForbidden, "forbidden")
 				return
 			}
 
@@ -47,22 +50,26 @@ func RequireRole(role string) func(http.Handler) http.Handler {
 
 // RequireAnyRole allows any of given roles
 func RequireAnyRole(roles ...string) func(http.Handler) http.Handler {
+
 	roleSet := make(map[string]struct{})
+
 	for _, r := range roles {
 		roleSet[r] = struct{}{}
 	}
 
 	return func(next http.Handler) http.Handler {
+
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 			userRole := UserRole(r.Context())
+
 			if userRole == "" {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				writeError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 
 			if _, ok := roleSet[userRole]; !ok {
-				http.Error(w, "forbidden", http.StatusForbidden)
+				writeError(w, http.StatusForbidden, "forbidden")
 				return
 			}
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,7 +19,12 @@ type Repository interface {
 	// NGO profile
 	CreateNGOProfile(ctx context.Context, ngo *NGOProfile) error
 	GetNGOProfileByUserID(ctx context.Context, userID string) (*NGOProfile, error)
-	UpdateNGOVerification(ctx context.Context, userID string, verified bool, verifiedBy *string) error
+	UpdateNGOVerification(
+		ctx context.Context,
+		userID string,
+		verified bool,
+		verifiedBy *string,
+	) error
 }
 
 type repository struct {
@@ -32,8 +38,15 @@ func NewRepository(db *pgxpool.Pool) Repository {
 
 /* ===================== DONOR PROFILE ===================== */
 
-// CreateDonorProfile inserts a donor profile
-func (r *repository) CreateDonorProfile(ctx context.Context, donor *DonorProfile) error {
+// CreateDonorProfile inserts donor profile
+func (r *repository) CreateDonorProfile(
+	ctx context.Context,
+	donor *DonorProfile,
+) error {
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	query := `
 		INSERT INTO donor_profiles (
 			user_id, name, phone, address
@@ -42,7 +55,7 @@ func (r *repository) CreateDonorProfile(ctx context.Context, donor *DonorProfile
 		RETURNING id, created_at, updated_at
 	`
 
-	return r.db.QueryRow(
+	err := r.db.QueryRow(
 		ctx,
 		query,
 		donor.UserID,
@@ -54,19 +67,46 @@ func (r *repository) CreateDonorProfile(ctx context.Context, donor *DonorProfile
 		&donor.CreatedAt,
 		&donor.UpdatedAt,
 	)
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" {
+				return ErrDonorProfileExists
+			}
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 // GetDonorProfileByUserID fetches donor profile
-func (r *repository) GetDonorProfileByUserID(ctx context.Context, userID string) (*DonorProfile, error) {
+func (r *repository) GetDonorProfileByUserID(
+	ctx context.Context,
+	userID string,
+) (*DonorProfile, error) {
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	query := `
 		SELECT
-			id, user_id, name, phone, address,
-			created_at, updated_at
+			id,
+			user_id,
+			name,
+			phone,
+			address,
+			created_at,
+			updated_at
 		FROM donor_profiles
 		WHERE user_id = $1
 	`
 
 	d := &DonorProfile{}
+
 	err := r.db.QueryRow(ctx, query, userID).Scan(
 		&d.ID,
 		&d.UserID,
@@ -78,22 +118,30 @@ func (r *repository) GetDonorProfileByUserID(ctx context.Context, userID string)
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, ErrDonorProfileNotFound
 	}
 
 	return d, nil
 }
 
 // UpdateDonorProfile updates donor profile
-func (r *repository) UpdateDonorProfile(ctx context.Context, donor *DonorProfile) error {
+func (r *repository) UpdateDonorProfile(
+	ctx context.Context,
+	donor *DonorProfile,
+) error {
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	cmd, err := r.db.Exec(
 		ctx,
 		`
 		UPDATE donor_profiles
-		SET name = $2,
-		    phone = $3,
-		    address = $4,
-		    updated_at = $5
+		SET
+			name = $2,
+			phone = $3,
+			address = $4,
+			updated_at = $5
 		WHERE user_id = $1
 		`,
 		donor.UserID,
@@ -108,7 +156,7 @@ func (r *repository) UpdateDonorProfile(ctx context.Context, donor *DonorProfile
 	}
 
 	if cmd.RowsAffected() == 0 {
-		return errors.New("donor profile not found")
+		return ErrDonorProfileNotFound
 	}
 
 	return nil
@@ -117,16 +165,26 @@ func (r *repository) UpdateDonorProfile(ctx context.Context, donor *DonorProfile
 /* ===================== NGO PROFILE ===================== */
 
 // CreateNGOProfile inserts NGO profile
-func (r *repository) CreateNGOProfile(ctx context.Context, ngo *NGOProfile) error {
+func (r *repository) CreateNGOProfile(
+	ctx context.Context,
+	ngo *NGOProfile,
+) error {
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	query := `
 		INSERT INTO ngo_profiles (
-			user_id, organization, registration_no, verified
+			user_id,
+			organization,
+			registration_no,
+			verified
 		)
 		VALUES ($1, $2, $3, false)
 		RETURNING id, created_at, updated_at
 	`
 
-	return r.db.QueryRow(
+	err := r.db.QueryRow(
 		ctx,
 		query,
 		ngo.UserID,
@@ -137,20 +195,48 @@ func (r *repository) CreateNGOProfile(ctx context.Context, ngo *NGOProfile) erro
 		&ngo.CreatedAt,
 		&ngo.UpdatedAt,
 	)
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" {
+				return ErrNGOProfileExists
+			}
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 // GetNGOProfileByUserID fetches NGO profile
-func (r *repository) GetNGOProfileByUserID(ctx context.Context, userID string) (*NGOProfile, error) {
+func (r *repository) GetNGOProfileByUserID(
+	ctx context.Context,
+	userID string,
+) (*NGOProfile, error) {
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	query := `
 		SELECT
-			id, user_id, organization, registration_no,
-			verified, verified_by, verified_at,
-			created_at, updated_at
+			id,
+			user_id,
+			organization,
+			registration_no,
+			verified,
+			verified_by,
+			verified_at,
+			created_at,
+			updated_at
 		FROM ngo_profiles
 		WHERE user_id = $1
 	`
 
 	n := &NGOProfile{}
+
 	err := r.db.QueryRow(ctx, query, userID).Scan(
 		&n.ID,
 		&n.UserID,
@@ -164,7 +250,7 @@ func (r *repository) GetNGOProfileByUserID(ctx context.Context, userID string) (
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, ErrNGOProfileNotFound
 	}
 
 	return n, nil
@@ -178,16 +264,20 @@ func (r *repository) UpdateNGOVerification(
 	verifiedBy *string,
 ) error {
 
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	now := time.Now()
 
 	cmd, err := r.db.Exec(
 		ctx,
 		`
 		UPDATE ngo_profiles
-		SET verified = $2,
-		    verified_by = $3,
-		    verified_at = $4,
-		    updated_at = $4
+		SET
+			verified = $2,
+			verified_by = $3,
+			verified_at = $4,
+			updated_at = $4
 		WHERE user_id = $1
 		`,
 		userID,
@@ -201,7 +291,7 @@ func (r *repository) UpdateNGOVerification(
 	}
 
 	if cmd.RowsAffected() == 0 {
-		return errors.New("ngo profile not found")
+		return ErrNGOProfileNotFound
 	}
 
 	return nil

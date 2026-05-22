@@ -9,48 +9,55 @@ import (
 
 // RegisterRoutes wires all HTTP routes
 func RegisterRoutes(handler *user.Handler) http.Handler {
+
 	mux := http.NewServeMux()
 
 	/* ===================== INTERNAL (SERVICE-TO-SERVICE) ===================== */
 
 	mux.HandleFunc(
-		"/internal/users/{id}/donor",
+		"GET /internal/users/{id}/donor",
 		handler.GetDonorProfileInternal,
 	)
 
 	mux.HandleFunc(
-		"/internal/users/{id}/ngo",
+		"GET /internal/users/{id}/ngo",
 		handler.GetNGOProfileInternal,
 	)
 
 	/* ===================== DONOR PROFILE ===================== */
 
 	mux.Handle(
-		"/donors/profile",
-		middleware.Auth(http.HandlerFunc(handler.CreateDonorProfile)),
+		"POST /donors/profile",
+		middleware.Auth(
+			http.HandlerFunc(handler.CreateDonorProfile),
+		),
 	)
 
 	mux.Handle(
-		"/donors/profile/me",
-		middleware.Auth(http.HandlerFunc(handler.GetMyDonorProfile)),
+		"GET /donors/profile/me",
+		middleware.Auth(
+			http.HandlerFunc(handler.GetMyDonorProfile),
+		),
 	)
 
 	mux.Handle(
-		"/donors/profile/me/update",
-		middleware.Auth(http.HandlerFunc(handler.UpdateMyDonorProfile)),
+		"PUT /donors/profile/me",
+		middleware.Auth(
+			http.HandlerFunc(handler.UpdateMyDonorProfile),
+		),
 	)
 
 	/* ===================== NGO PROFILE ===================== */
 
 	mux.Handle(
-		"/ngos",
+		"POST /ngos/profile",
 		middleware.Auth(
 			http.HandlerFunc(handler.CreateNGOProfile),
 		),
 	)
 
 	mux.Handle(
-		"/ngos/me",
+		"GET /ngos/profile/me",
 		middleware.Auth(
 			http.HandlerFunc(handler.GetMyNGOProfile),
 		),
@@ -59,9 +66,9 @@ func RegisterRoutes(handler *user.Handler) http.Handler {
 	/* ===================== ADMIN ===================== */
 
 	mux.Handle(
-		"/admin/ngos/verify",
+		"PUT /admin/ngos/verify",
 		middleware.Auth(
-			middleware.RequireRole("ADMIN")(
+			middleware.RequireRole(user.RoleAdmin)(
 				http.HandlerFunc(handler.VerifyNGO),
 			),
 		),
@@ -69,10 +76,13 @@ func RegisterRoutes(handler *user.Handler) http.Handler {
 
 	/* ===================== HEALTH ===================== */
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("user service healthy"))
-	})
+	mux.HandleFunc(
+		"GET /health",
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("user service healthy"))
+		},
+	)
 
 	return mux
 }

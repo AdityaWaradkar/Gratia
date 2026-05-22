@@ -23,8 +23,8 @@ func (s *Service) GetDonorProfileByUserIDInternal(
 	userID string,
 ) (*DonorProfile, error) {
 
-	if userID == "" {
-		return nil, errors.New("invalid user id")
+	if strings.TrimSpace(userID) == "" {
+		return nil, ErrInvalidUserID
 	}
 
 	return s.repo.GetDonorProfileByUserID(ctx, userID)
@@ -36,8 +36,8 @@ func (s *Service) GetNGOProfileByUserIDInternal(
 	userID string,
 ) (*NGOProfile, error) {
 
-	if userID == "" {
-		return nil, errors.New("invalid user id")
+	if strings.TrimSpace(userID) == "" {
+		return nil, ErrInvalidUserID
 	}
 
 	return s.repo.GetNGOProfileByUserID(ctx, userID)
@@ -54,21 +54,27 @@ func (s *Service) CreateDonorProfile(
 	address *string,
 ) (*DonorProfile, error) {
 
-	if userID == "" {
-		return nil, errors.New("unauthorized")
+	if strings.TrimSpace(userID) == "" {
+		return nil, ErrUnauthorized
 	}
 
-	if role != "USER" {
-		return nil, errors.New("only authenticated users can create donor profile")
+	if role != RoleUser {
+		return nil, ErrForbidden
 	}
 
 	if strings.TrimSpace(name) == "" {
 		return nil, errors.New("name is required")
 	}
 
+	// Prevent duplicate donor profile
+	existing, err := s.repo.GetDonorProfileByUserID(ctx, userID)
+	if err == nil && existing != nil {
+		return nil, ErrDonorProfileExists
+	}
+
 	donor := &DonorProfile{
 		UserID:  userID,
-		Name:    name,
+		Name:    strings.TrimSpace(name),
 		Phone:   phone,
 		Address: address,
 	}
@@ -80,10 +86,15 @@ func (s *Service) CreateDonorProfile(
 	return donor, nil
 }
 
-func (s *Service) GetMyDonorProfile(ctx context.Context, userID string) (*DonorProfile, error) {
-	if userID == "" {
-		return nil, errors.New("unauthorized")
+func (s *Service) GetMyDonorProfile(
+	ctx context.Context,
+	userID string,
+) (*DonorProfile, error) {
+
+	if strings.TrimSpace(userID) == "" {
+		return nil, ErrUnauthorized
 	}
+
 	return s.repo.GetDonorProfileByUserID(ctx, userID)
 }
 
@@ -95,17 +106,17 @@ func (s *Service) UpdateMyDonorProfile(
 	address *string,
 ) error {
 
-	if userID == "" {
-		return errors.New("unauthorized")
+	if strings.TrimSpace(userID) == "" {
+		return ErrUnauthorized
 	}
 
 	profile, err := s.repo.GetDonorProfileByUserID(ctx, userID)
 	if err != nil {
-		return errors.New("donor profile not found")
+		return ErrDonorProfileNotFound
 	}
 
 	if strings.TrimSpace(name) != "" {
-		profile.Name = name
+		profile.Name = strings.TrimSpace(name)
 	}
 
 	profile.Phone = phone
@@ -125,23 +136,29 @@ func (s *Service) CreateNGOProfile(
 	registrationNo string,
 ) (*NGOProfile, error) {
 
-	if userID == "" {
-		return nil, errors.New("unauthorized")
+	if strings.TrimSpace(userID) == "" {
+		return nil, ErrUnauthorized
 	}
 
-	// IMPORTANT FIX: NGO is NOT a role
-	if role != "USER" {
-		return nil, errors.New("only authenticated users can apply as NGO")
+	if role != RoleUser {
+		return nil, ErrForbidden
 	}
 
-	if strings.TrimSpace(organization) == "" || strings.TrimSpace(registrationNo) == "" {
-		return nil, errors.New("invalid ngo details")
+	if strings.TrimSpace(organization) == "" ||
+		strings.TrimSpace(registrationNo) == "" {
+		return nil, ErrInvalidNGODetails
+	}
+
+	// Prevent duplicate NGO profile
+	existing, err := s.repo.GetNGOProfileByUserID(ctx, userID)
+	if err == nil && existing != nil {
+		return nil, ErrNGOProfileExists
 	}
 
 	ngo := &NGOProfile{
 		UserID:         userID,
-		Organization:   organization,
-		RegistrationNo: registrationNo,
+		Organization:   strings.TrimSpace(organization),
+		RegistrationNo: strings.TrimSpace(registrationNo),
 		Verified:       false,
 	}
 
@@ -152,10 +169,15 @@ func (s *Service) CreateNGOProfile(
 	return ngo, nil
 }
 
-func (s *Service) GetMyNGOProfile(ctx context.Context, userID string) (*NGOProfile, error) {
-	if userID == "" {
-		return nil, errors.New("unauthorized")
+func (s *Service) GetMyNGOProfile(
+	ctx context.Context,
+	userID string,
+) (*NGOProfile, error) {
+
+	if strings.TrimSpace(userID) == "" {
+		return nil, ErrUnauthorized
 	}
+
 	return s.repo.GetNGOProfileByUserID(ctx, userID)
 }
 
@@ -168,17 +190,31 @@ func (s *Service) VerifyNGO(
 	targetUserID string,
 ) error {
 
-	if adminUserID == "" {
-		return errors.New("unauthorized")
+	if strings.TrimSpace(adminUserID) == "" {
+		return ErrUnauthorized
 	}
 
-	if adminRole != "ADMIN" {
-		return errors.New("forbidden")
+	if adminRole != RoleAdmin {
+		return ErrForbidden
 	}
 
-	if targetUserID == "" {
-		return errors.New("target user id required")
+	if strings.TrimSpace(targetUserID) == "" {
+		return ErrTargetUserIDRequired
 	}
 
-	return s.repo.UpdateNGOVerification(ctx, targetUserID, true, &adminUserID)
+	ngo, err := s.repo.GetNGOProfileByUserID(ctx, targetUserID)
+	if err != nil {
+		return ErrNGOProfileNotFound
+	}
+
+	if ngo.Verified {
+		return ErrNGOAlreadyVerified
+	}
+
+	return s.repo.UpdateNGOVerification(
+		ctx,
+		targetUserID,
+		true,
+		&adminUserID,
+	)
 }

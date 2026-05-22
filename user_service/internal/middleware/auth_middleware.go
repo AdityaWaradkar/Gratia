@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -10,63 +9,70 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type errorResponse struct {
-	Message string `json:"message"`
+type jwtClaims struct {
+	Role string `json:"role"`
+	jwt.RegisteredClaims
 }
 
 // Auth validates JWT and injects user context
 func Auth(next http.Handler) http.Handler {
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		authHeader := r.Header.Get("Authorization")
+
 		if authHeader == "" {
 			writeError(w, http.StatusUnauthorized, "authorization header missing")
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 			writeError(w, http.StatusUnauthorized, "invalid authorization header")
 			return
 		}
 
 		tokenStr := parts[1]
 
-		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, jwt.ErrSignatureInvalid
-			}
-			return []byte(config.AppConfig.JWTSecret), nil
-		})
+		claims := &jwtClaims{}
+
+		token, err := jwt.ParseWithClaims(
+			tokenStr,
+			claims,
+			func(token *jwt.Token) (interface{}, error) {
+
+				// Ensure HMAC signing method
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, jwt.ErrTokenSignatureInvalid
+				}
+
+				return []byte(config.AppConfig.JWTSecret), nil
+			},
+		)
 
 		if err != nil || !token.Valid {
 			writeError(w, http.StatusUnauthorized, "invalid or expired token")
 			return
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
+		if claims.Subject == "" || claims.Role == "" {
 			writeError(w, http.StatusUnauthorized, "invalid token claims")
 			return
 		}
 
-		userID, _ := claims["sub"].(string)
-		role, _ := claims["role"].(string)
+		ctx := context.WithValue(
+			r.Context(),
+			UserIDKey,
+			claims.Subject,
+		)
 
-		if userID == "" || role == "" {
-			writeError(w, http.StatusUnauthorized, "invalid token claims")
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), UserIDKey, userID)
-		ctx = context.WithValue(ctx, UserRoleKey, role)
+		ctx = context.WithValue(
+			ctx,
+			UserRoleKey,
+			claims.Role,
+		)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
-}
-
-func writeError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(errorResponse{Message: message})
 }
