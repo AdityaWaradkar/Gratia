@@ -1,31 +1,66 @@
 openapi: 3.0.3
 
 info:
-  title: Authentication Service API
-  description: Authentication and authorization service for user accounts, JWT tokens, and password management.
+  title: Gratia Authentication Service API
   version: 1.0.0
+  description: |
+    Authentication and authorization service for the Gratia platform.
+
+    Features:
+    - User registration
+    - JWT authentication
+    - Refresh token rotation
+    - Session management
+    - Password reset workflows
+    - Protected user endpoints
+
+  contact:
+    name: Aditya Waradkar
+    email: aditya@example.com
 
 servers:
-  - url: /
-    description: Auth Service Base URL
+  - url: http://localhost:8080
+    description: Local Development
+
+  - url: https://auth.gratia.dev
+    description: Development Server
 
 tags:
   - name: Authentication
+    description: Authentication and token management
+
   - name: User
+    description: Authenticated user operations
+
   - name: Password
+    description: Password recovery and reset
+
   - name: Monitoring
+    description: Health monitoring endpoints
+
+security:
+  - BearerAuth: []
 
 paths:
+
   /auth/register:
     post:
       summary: Register a new user
-      tags: [Authentication]
+      description: Creates a new authenticated user account.
+      operationId: registerUser
+
+      security: []
+
+      tags:
+        - Authentication
+
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
+
       responses:
         '201':
           description: User registered successfully
@@ -33,8 +68,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
+
         '400':
-          description: Invalid input or user already exists
+          description: Invalid request or user already exists
           content:
             application/json:
               schema:
@@ -42,21 +78,30 @@ paths:
 
   /auth/login:
     post:
-      summary: Login user and issue tokens
-      tags: [Authentication]
+      summary: Login user
+      description: Authenticates user and issues JWT access and refresh tokens.
+      operationId: loginUser
+
+      security: []
+
+      tags:
+        - Authentication
+
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
+
       responses:
         '200':
-          description: Tokens issued successfully
+          description: Authentication successful
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenPair'
+
         '401':
           description: Invalid credentials
           content:
@@ -66,14 +111,22 @@ paths:
 
   /auth/refresh:
     post:
-      summary: Refresh access and refresh tokens
-      tags: [Authentication]
+      summary: Refresh authentication tokens
+      description: Rotates refresh token and issues new access token.
+      operationId: refreshTokens
+
+      security: []
+
+      tags:
+        - Authentication
+
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RefreshRequest'
+
       responses:
         '200':
           description: Tokens refreshed successfully
@@ -81,6 +134,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenPair'
+
         '401':
           description: Invalid or expired refresh token
           content:
@@ -90,19 +144,28 @@ paths:
 
   /auth/logout:
     post:
-      summary: Logout user and revoke refresh token
-      tags: [Authentication]
+      summary: Logout authenticated session
+      description: Revokes refresh token and invalidates session.
+      operationId: logoutUser
+
+      security: []
+
+      tags:
+        - Authentication
+
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RefreshRequest'
+
       responses:
         '204':
-          description: Logged out successfully
+          description: Logout successful
+
         '401':
-          description: Invalid token
+          description: Invalid refresh token
           content:
             application/json:
               schema:
@@ -111,16 +174,20 @@ paths:
   /auth/me:
     get:
       summary: Get current authenticated user
-      tags: [User]
-      security:
-        - BearerAuth: []
+      description: Returns currently authenticated user details.
+      operationId: getCurrentUser
+
+      tags:
+        - User
+
       responses:
         '200':
-          description: User details
+          description: Authenticated user details
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
+
         '401':
           description: Unauthorized
           content:
@@ -131,13 +198,21 @@ paths:
   /auth/forgot-password:
     post:
       summary: Generate password reset token
-      tags: [Password]
+      description: Creates password reset token for account recovery.
+      operationId: forgotPassword
+
+      security: []
+
+      tags:
+        - Password
+
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ForgotPasswordRequest'
+
       responses:
         '200':
           description: Reset token generated
@@ -145,6 +220,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PasswordResetResponse'
+
         '400':
           description: Invalid email
           content:
@@ -154,19 +230,28 @@ paths:
 
   /auth/reset-password:
     post:
-      summary: Reset password using reset token
-      tags: [Password]
+      summary: Reset account password
+      description: Resets password using valid reset token.
+      operationId: resetPassword
+
+      security: []
+
+      tags:
+        - Password
+
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ResetPasswordRequest'
+
       responses:
         '204':
-          description: Password reset successfully
+          description: Password reset successful
+
         '400':
-          description: Invalid token or password
+          description: Invalid reset token or password
           content:
             application/json:
               schema:
@@ -174,8 +259,14 @@ paths:
 
   /health:
     get:
-      summary: Health check
-      tags: [Monitoring]
+      summary: Service health check
+      operationId: healthCheck
+
+      security: []
+
+      tags:
+        - Monitoring
+
       responses:
         '200':
           description: Service healthy
@@ -183,12 +274,14 @@ paths:
             application/json:
               schema:
                 type: object
+                additionalProperties: false
                 properties:
                   status:
                     type: string
                     example: ok
 
 components:
+
   securitySchemes:
     BearerAuth:
       type: http
@@ -196,42 +289,68 @@ components:
       bearerFormat: JWT
 
   schemas:
+
     RegisterRequest:
       type: object
-      required: [email, password]
+      additionalProperties: false
+
+      required:
+        - email
+        - password
+
       properties:
         email:
           type: string
           format: email
+          example: user@example.com
+
         password:
           type: string
-          format: password
+          minLength: 8
+          example: Password123!
+
         role:
           type: string
-          enum: [USER, ADMIN]
+          enum:
+            - USER
+            - ADMIN
           default: USER
 
     LoginRequest:
       type: object
-      required: [email, password]
+      additionalProperties: false
+
+      required:
+        - email
+        - password
+
       properties:
         email:
           type: string
           format: email
+
         password:
           type: string
           format: password
 
     RefreshRequest:
       type: object
-      required: [refreshToken]
+      additionalProperties: false
+
+      required:
+        - refreshToken
+
       properties:
         refreshToken:
           type: string
 
     ForgotPasswordRequest:
       type: object
-      required: [email]
+      additionalProperties: false
+
+      required:
+        - email
+
       properties:
         email:
           type: string
@@ -239,51 +358,69 @@ components:
 
     ResetPasswordRequest:
       type: object
-      required: [token, newPassword]
+      additionalProperties: false
+
+      required:
+        - token
+        - newPassword
+
       properties:
         token:
           type: string
+
         newPassword:
           type: string
-          format: password
+          minLength: 8
 
     TokenPair:
       type: object
+
       properties:
         accessToken:
           type: string
+
         refreshToken:
           type: string
 
     UserResponse:
       type: object
+
       properties:
         id:
           type: string
           format: uuid
+
         email:
           type: string
           format: email
+
         role:
           type: string
-          enum: [USER, ADMIN]
+          enum:
+            - USER
+            - ADMIN
+
         emailVerified:
           type: boolean
+
         createdAt:
           type: string
           format: date-time
+
         updatedAt:
           type: string
           format: date-time
 
     PasswordResetResponse:
       type: object
+
       properties:
         resetToken:
           type: string
 
     ErrorResponse:
       type: object
+
       properties:
         message:
           type: string

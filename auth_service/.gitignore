@@ -1,33 +1,86 @@
-# Go build output
-bin/
-build/
-dist/
-*.exe
-*.out
-*.test
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+!.env.example
 
-# Go modules
+# =========================
+# Go Build Files
+# =========================
+bin/
+dist/
+build/
+
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+*.test
+*.out
+
+# =========================
+# Go Workspace
+# =========================
+go.work
+go.work.sum
+
+# =========================
+# Vendor Directory
+# =========================
 vendor/
 
-# IDE and editor files
+# =========================
+# IDE / Editor Files
+# =========================
 .vscode/
 .idea/
-*.swp
 
+*.swp
+*.swo
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
 # Logs
+# =========================
+logs/
 *.log
 
-# Environment files
-.env
-.env.local
-.env.*.local
+# =========================
+# Docker
+# =========================
+docker-data/
 
-# System files
-.DS_Store
-
-# Coverage files
-coverage.out
-
-# Temp files
+# =========================
+# Temporary Files
+# =========================
 tmp/
-*.tmp
+temp/
+
+# =========================
+# Coverage / Testing
+# =========================
+coverage.out
+coverage.html
+
+
+# =========================
+# Kubernetes Secrets
+# =========================
+*.pem
+*.key
+*.crt
+secrets/
+
+# =========================
+# Misc
+# =========================
+*.bak
+*.old

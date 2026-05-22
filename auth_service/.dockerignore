@@ -1,52 +1,18 @@
-# Binaries
-auth-service
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Build directories
-bin/
-build/
-dist/
-
-# Go build cache
-cache/
-*.test
-
-# Modules (auto-downloaded)
-vendor/
-
-# Logs
-*.log
-
-# Temporary files
-*.tmp
-*.swp
-*.out
-
-# Local env/config
-.env
-.env.*
-*.local
-
-# Editor/OS files
-.DS_Store
-.idea/
-.vscode/
-*.code-workspace
-
-# Git
 .git
 .gitignore
-.gitattributes
 
-# Docker files not needed in image
-docker-compose.yml
-docker-compose.yaml
+.vscode
+.idea
 
-# Runtime data
-uploads/
+tmp
+vendor
 
-# Optional
-*_test.go
+README.md
+
+.env
+.env.*
+
+Dockerfile*
+docker-compose*
+
+docs/
