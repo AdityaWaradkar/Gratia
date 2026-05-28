@@ -1,18 +1,18 @@
 .git
 .gitignore
 
-.env
-.env.example
+.vscode
+.idea
 
-tmp/
-temp/
-
-vendor/
-
-coverage.out
-
-*.log
+tmp
+vendor
 
 README.md
 
-docker-compose.yml
+.env
+.env.*
+
+Dockerfile*
+docker-compose*
+
+docs/

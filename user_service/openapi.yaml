@@ -1,0 +1,516 @@
+openapi: 3.0.3
+
+info:
+  title: Gratia User Service API
+  version: 1.0.0
+  description: |
+    User profile and NGO management service for the Gratia platform.
+
+    Features:
+    - Donor profile management
+    - NGO profile management
+    - NGO verification workflows
+    - Internal service-to-service profile APIs
+    - Role-based access control
+    - Protected authenticated endpoints
+
+  contact:
+    name: Aditya Waradkar
+    email: aditya@example.com
+
+servers:
+  - url: http://localhost:8081
+    description: Local Development
+
+  - url: https://user.gratia.dev
+    description: Development Server
+
+tags:
+  - name: Donor Profiles
+    description: Donor profile management operations
+
+  - name: NGO Profiles
+    description: NGO profile management operations
+
+  - name: Admin
+    description: Administrative NGO verification operations
+
+  - name: Internal
+    description: Internal service-to-service endpoints
+
+  - name: Monitoring
+    description: Health monitoring endpoints
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  /donors/profile:
+    post:
+      summary: Create donor profile
+      description: Creates donor profile for authenticated user.
+      operationId: createDonorProfile
+
+      tags:
+        - Donor Profiles
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDonorProfileRequest'
+
+      responses:
+        '201':
+          description: Donor profile created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DonorProfile'
+
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '409':
+          description: Donor profile already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /donors/profile/me:
+    get:
+      summary: Get authenticated donor profile
+      description: Returns donor profile of authenticated user.
+      operationId: getMyDonorProfile
+
+      tags:
+        - Donor Profiles
+
+      responses:
+        '200':
+          description: Donor profile fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DonorProfile'
+
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Donor profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update authenticated donor profile
+      description: Updates donor profile of authenticated user.
+      operationId: updateMyDonorProfile
+
+      tags:
+        - Donor Profiles
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDonorProfileRequest'
+
+      responses:
+        '204':
+          description: Donor profile updated successfully
+
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Donor profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ngos/profile:
+    post:
+      summary: Create NGO profile
+      description: Creates NGO profile for authenticated user.
+      operationId: createNGOProfile
+
+      tags:
+        - NGO Profiles
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNGOProfileRequest'
+
+      responses:
+        '201':
+          description: NGO profile created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NGOProfile'
+
+        '400':
+          description: Invalid NGO details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '409':
+          description: NGO profile already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ngos/profile/me:
+    get:
+      summary: Get authenticated NGO profile
+      description: Returns NGO profile of authenticated user.
+      operationId: getMyNGOProfile
+
+      tags:
+        - NGO Profiles
+
+      responses:
+        '200':
+          description: NGO profile fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NGOProfile'
+
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: NGO profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/ngos/verify:
+    put:
+      summary: Verify NGO profile
+      description: Verifies NGO profile using admin privileges.
+      operationId: verifyNGO
+
+      tags:
+        - Admin
+
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        '204':
+          description: NGO verified successfully
+
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: NGO profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '409':
+          description: NGO already verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/users/{id}/donor:
+    get:
+      summary: Get donor profile by user ID
+      description: Internal endpoint for fetching donor profile by user ID.
+      operationId: getDonorProfileInternal
+
+      security: []
+
+      tags:
+        - Internal
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        '200':
+          description: Donor profile fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DonorProfile'
+
+        '404':
+          description: Donor profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/users/{id}/ngo:
+    get:
+      summary: Get NGO profile by user ID
+      description: Internal endpoint for fetching NGO profile by user ID.
+      operationId: getNGOProfileInternal
+
+      security: []
+
+      tags:
+        - Internal
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        '200':
+          description: NGO profile fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NGOProfile'
+
+        '404':
+          description: NGO profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Service health check
+      operationId: healthCheck
+
+      security: []
+
+      tags:
+        - Monitoring
+
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: user service healthy
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    CreateDonorProfileRequest:
+      type: object
+      additionalProperties: false
+
+      required:
+        - name
+
+      properties:
+        name:
+          type: string
+          example: Aditya Waradkar
+
+        phone:
+          type: string
+          example: "+919876543210"
+
+        address:
+          type: string
+          example: Navi Mumbai
+
+    UpdateDonorProfileRequest:
+      type: object
+      additionalProperties: false
+
+      properties:
+        name:
+          type: string
+          example: Aditya Updated
+
+        phone:
+          type: string
+          example: "+919111111111"
+
+        address:
+          type: string
+          example: Mumbai
+
+    CreateNGOProfileRequest:
+      type: object
+      additionalProperties: false
+
+      required:
+        - organization
+        - registrationNo
+
+      properties:
+        organization:
+          type: string
+          example: Helping Hands NGO
+
+        registrationNo:
+          type: string
+          example: NGO-2026-001
+
+    DonorProfile:
+      type: object
+
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        userId:
+          type: string
+          format: uuid
+
+        name:
+          type: string
+
+        phone:
+          type: string
+          nullable: true
+
+        address:
+          type: string
+          nullable: true
+
+        createdAt:
+          type: string
+          format: date-time
+
+        updatedAt:
+          type: string
+          format: date-time
+
+    NGOProfile:
+      type: object
+
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        userId:
+          type: string
+          format: uuid
+
+        organization:
+          type: string
+
+        registrationNo:
+          type: string
+
+        verified:
+          type: boolean
+
+        verifiedBy:
+          type: string
+          format: uuid
+          nullable: true
+
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+        createdAt:
+          type: string
+          format: date-time
+
+        updatedAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+
+      properties:
+        message:
+          type: string
