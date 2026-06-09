@@ -3,6 +3,7 @@ package claim
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ var (
 	ErrActiveClaimExists = errors.New("active claim already exists")
 	ErrNGONotVerified    = errors.New("ngo is not verified")
 	ErrFoodNotOpen       = errors.New("food listing is not open")
+	ErrSelfClaim         = errors.New("ngo cannot claim its own food listing")
 )
 
 /*
@@ -62,7 +64,7 @@ func NewService(
 }
 
 /*
-Create claim (NGO)
+Create Claim
 */
 
 func (s *Service) CreateClaim(
@@ -75,27 +77,36 @@ func (s *Service) CreateClaim(
 	if err != nil {
 		return nil, err
 	}
+
 	if !verified {
 		return nil, ErrNGONotVerified
 	}
 
-	donorUserID, foodStatus, err := s.foodClient.GetFoodForClaim(ctx, foodListingID)
+	donorUserID, foodStatus, err := s.foodClient.GetFoodForClaim(
+		ctx,
+		foodListingID,
+	)
 	if err != nil {
 		return nil, err
 	}
+
 	if foodStatus != "OPEN" {
 		return nil, ErrFoodNotOpen
+	}
+
+	// NGO cannot claim its own donation.
+	if donorUserID == ngoUserID {
+		return nil, ErrSelfClaim
 	}
 
 	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
 
-	if _, err := s.repo.GetActiveByFoodID(ctx, foodListingID); err == nil {
-		return nil, ErrActiveClaimExists
-	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
 	now := time.Now().UTC()
 
@@ -104,12 +115,18 @@ func (s *Service) CreateClaim(
 		FoodListingID: foodListingID,
 		NGOUserID:     ngoUserID,
 		DonorUserID:   donorUserID,
-		Status:        ClaimStatusRequested,
+		Status:        ClaimStatusCreated,
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
 
 	if err := s.repo.Create(ctx, tx, claim); err != nil {
+
+		// PostgreSQL unique partial index violation
+		if isUniqueViolation(err) {
+			return nil, ErrActiveClaimExists
+		}
+
 		return nil, err
 	}
 
@@ -121,7 +138,7 @@ func (s *Service) CreateClaim(
 }
 
 /*
-Donor actions
+Donor Actions
 */
 
 func (s *Service) ApproveClaim(
@@ -129,7 +146,13 @@ func (s *Service) ApproveClaim(
 	claimID string,
 	donorUserID string,
 ) error {
-	return s.updateStatus(ctx, claimID, donorUserID, ActorDonor, ClaimStatusApproved)
+	return s.updateStatus(
+		ctx,
+		claimID,
+		donorUserID,
+		ActorDonor,
+		ClaimStatusAccepted,
+	)
 }
 
 func (s *Service) RejectClaim(
@@ -137,11 +160,17 @@ func (s *Service) RejectClaim(
 	claimID string,
 	donorUserID string,
 ) error {
-	return s.updateStatus(ctx, claimID, donorUserID, ActorDonor, ClaimStatusRejected)
+	return s.updateStatus(
+		ctx,
+		claimID,
+		donorUserID,
+		ActorDonor,
+		ClaimStatusRejected,
+	)
 }
 
 /*
-NGO actions
+NGO Actions
 */
 
 func (s *Service) CancelByNGO(
@@ -149,7 +178,13 @@ func (s *Service) CancelByNGO(
 	claimID string,
 	ngoUserID string,
 ) error {
-	return s.updateStatus(ctx, claimID, ngoUserID, ActorNGO, ClaimStatusCancelled)
+	return s.updateStatus(
+		ctx,
+		claimID,
+		ngoUserID,
+		ActorNGO,
+		ClaimStatusCancelled,
+	)
 }
 
 func (s *Service) MarkPickedUp(
@@ -157,7 +192,13 @@ func (s *Service) MarkPickedUp(
 	claimID string,
 	ngoUserID string,
 ) error {
-	return s.updateStatus(ctx, claimID, ngoUserID, ActorNGO, ClaimStatusPickedUp)
+	return s.updateStatus(
+		ctx,
+		claimID,
+		ngoUserID,
+		ActorNGO,
+		ClaimStatusPickedUp,
+	)
 }
 
 func (s *Service) MarkDelivered(
@@ -165,11 +206,17 @@ func (s *Service) MarkDelivered(
 	claimID string,
 	ngoUserID string,
 ) error {
-	return s.updateStatus(ctx, claimID, ngoUserID, ActorNGO, ClaimStatusDelivered)
+	return s.updateStatus(
+		ctx,
+		claimID,
+		ngoUserID,
+		ActorNGO,
+		ClaimStatusDelivered,
+	)
 }
 
 /*
-Shared state transition logic
+Shared State Transition Logic
 */
 
 func (s *Service) updateStatus(
@@ -184,9 +231,16 @@ func (s *Service) updateStatus(
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
 
-	claim, err := s.repo.GetByID(ctx, claimID)
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	claim, err := s.repo.GetByIDForUpdate(
+		ctx,
+		tx,
+		claimID,
+	)
 	if err != nil {
 		return err
 	}
@@ -199,9 +253,29 @@ func (s *Service) updateStatus(
 		return ErrInvalidState
 	}
 
-	if err := s.repo.UpdateStatus(ctx, tx, claimID, nextStatus); err != nil {
+	if err := s.repo.UpdateStatus(
+		ctx,
+		tx,
+		claimID,
+		nextStatus,
+	); err != nil {
 		return err
 	}
 
 	return tx.Commit()
+}
+
+/*
+PostgreSQL Helpers
+*/
+
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.Contains(
+		strings.ToLower(err.Error()),
+		"duplicate key value",
+	)
 }

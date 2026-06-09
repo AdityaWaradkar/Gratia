@@ -18,32 +18,65 @@ import (
 )
 
 func main() {
-	// Load configuration (fail-fast)
+
+	/*
+		Load Configuration
+	*/
+
 	config.Load()
 	cfg := config.AppConfig
 
-	// Initialize logger
+	/*
+		Logger
+	*/
+
 	logr := logger.New(logger.Config{
 		Level: cfg.LogLevel,
 	})
 
-	logr.Info("starting claim service", "env", cfg.Env)
+	logr.Info(
+		"starting claim service",
+		"env", cfg.Env,
+		"port", cfg.Port,
+	)
 
-	// Connect to database
+	/*
+		Database
+	*/
+
 	dbConn, err := db.New()
 	if err != nil {
-		logr.Error("failed to connect to database", "err", err)
+		logr.Error(
+			"failed to connect to database",
+			"error", err,
+		)
 		os.Exit(1)
 	}
 
-	// Repository
+	defer dbConn.Close()
+
+	/*
+		Repository
+	*/
+
 	repo := claim.NewClaimRepository(dbConn)
 
-	// External clients
-	userClient := client.NewUserClient(cfg.UserServiceURL)
-	foodClient := client.NewFoodClient(cfg.FoodServiceURL)
+	/*
+		External Clients
+	*/
 
-	// Service
+	userClient := client.NewUserClient(
+		cfg.UserServiceURL,
+	)
+
+	foodClient := client.NewFoodClient(
+		cfg.FoodServiceURL,
+	)
+
+	/*
+		Service Layer
+	*/
+
 	claimService := claim.NewService(
 		dbConn,
 		repo,
@@ -51,44 +84,95 @@ func main() {
 		foodClient,
 	)
 
-	// HTTP handlers
-	claimHandler := claim.NewHandler(claimService)
+	/*
+		Handlers
+	*/
 
-	// Auth middleware
-	authMiddleware := authmw.NewMiddleware(cfg.JWTSecret)
+	claimHandler := claim.NewHandler(
+		claimService,
+	)
 
-	// HTTP server
+	/*
+		Middleware
+	*/
+
+	authMiddleware := authmw.NewMiddleware(
+		cfg.JWTSecret,
+	)
+
+	/*
+		Router
+	*/
+
 	srv := server.NewServer(
 		claimHandler,
 		authMiddleware,
 	)
 
+	/*
+		HTTP Server
+	*/
+
 	httpServer := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: srv.Handler(),
+		Addr:              ":" + cfg.Port,
+		Handler:           srv.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
-	// Start server
+	/*
+		Start Server
+	*/
+
 	go func() {
-		logr.Info("http server started", "port", cfg.Port)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logr.Error("http server failed", "err", err)
+
+		logr.Info(
+			"http server started",
+			"port", cfg.Port,
+		)
+
+		if err := httpServer.ListenAndServe(); err != nil &&
+			err != http.ErrServerClosed {
+
+			logr.Error(
+				"http server failed",
+				"error", err,
+			)
+
 			os.Exit(1)
 		}
 	}()
 
-	// Graceful shutdown
+	/*
+		Graceful Shutdown
+	*/
+
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	signal.Notify(
+		quit,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+	)
+
 	<-quit
 
-	logr.Info("shutting down server")
+	logr.Info("shutdown signal received")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		10*time.Second,
+	)
 	defer cancel()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
-		logr.Error("server shutdown failed", "err", err)
+		logr.Error(
+			"server shutdown failed",
+			"error", err,
+		)
+		os.Exit(1)
 	}
 
 	logr.Info("server exited cleanly")

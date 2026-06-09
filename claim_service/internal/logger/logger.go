@@ -3,6 +3,7 @@ package logger
 import (
 	"log/slog"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -10,28 +11,35 @@ type Config struct {
 }
 
 func New(cfg Config) *slog.Logger {
-	level := parseLevel(cfg.Level)
 
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: level,
-	})
+	handler := slog.NewJSONHandler(
+		os.Stdout,
+		&slog.HandlerOptions{
+			Level: parseLevel(cfg.Level),
+		},
+	)
 
 	logger := slog.New(handler)
 
-	// Set as global default logger
+	// Set global logger.
 	slog.SetDefault(logger)
 
 	return logger
 }
 
 func parseLevel(level string) slog.Level {
-	switch level {
+
+	switch strings.ToLower(level) {
+
 	case "debug":
 		return slog.LevelDebug
-	case "warn":
+
+	case "warn", "warning":
 		return slog.LevelWarn
+
 	case "error":
 		return slog.LevelError
+
 	default:
 		return slog.LevelInfo
 	}

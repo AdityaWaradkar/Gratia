@@ -9,7 +9,10 @@ import (
 	"time"
 )
 
-var ErrFoodNotFound = errors.New("food listing not found")
+var (
+	ErrFoodNotFound       = errors.New("food listing not found")
+	ErrInvalidFoodResponse = errors.New("invalid response from food service")
+)
 
 type FoodClient struct {
 	baseURL    string
@@ -25,20 +28,45 @@ func NewFoodClient(baseURL string) *FoodClient {
 	}
 }
 
-type foodForClaimResponse struct {
+/*
+Response DTO
+*/
+
+type FoodForClaimResponse struct {
 	DonorUserID string `json:"donorUserId"`
 	Status      string `json:"status"`
 }
 
+/*
+GetFoodForClaim
+
+Expected response from food_service:
+
+{
+    "donorUserId": "...",
+    "status": "OPEN"
+}
+*/
+
 func (c *FoodClient) GetFoodForClaim(
 	ctx context.Context,
 	foodListingID string,
-) (string, string, error) {
+) (
+	donorUserID string,
+	status string,
+	err error,
+) {
+
+	url := fmt.Sprintf(
+		"%s/internal/foods/%s/claim-info",
+		c.baseURL,
+		foodListingID,
+	)
 
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		fmt.Sprintf("%s/internal/foods/%s/claim-info", c.baseURL, foodListingID),
+		url,
 		nil,
 	)
 	if err != nil {
@@ -52,21 +80,32 @@ func (c *FoodClient) GetFoodForClaim(
 	defer resp.Body.Close()
 
 	switch resp.StatusCode {
+
 	case http.StatusOK:
 		// continue
+
 	case http.StatusNotFound:
 		return "", "", ErrFoodNotFound
+
 	default:
-		return "", "", fmt.Errorf("food service returned status %d", resp.StatusCode)
+		return "", "", fmt.Errorf(
+			"food service returned unexpected status: %d",
+			resp.StatusCode,
+		)
 	}
 
-	var res foodForClaimResponse
+	var res FoodForClaimResponse
+
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return "", "", err
 	}
 
-	if res.DonorUserID == "" || res.Status == "" {
-		return "", "", errors.New("invalid response from food service")
+	if res.DonorUserID == "" {
+		return "", "", ErrInvalidFoodResponse
+	}
+
+	if res.Status == "" {
+		return "", "", ErrInvalidFoodResponse
 	}
 
 	return res.DonorUserID, res.Status, nil

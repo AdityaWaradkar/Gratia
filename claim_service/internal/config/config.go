@@ -7,7 +7,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Config holds claim service configuration
+/*
+Config
+*/
+
 type Config struct {
 	Env string
 
@@ -15,46 +18,85 @@ type Config struct {
 
 	JWTSecret string
 
+	DatabaseURL string
+
 	UserServiceURL string
 	FoodServiceURL string
 
 	LogLevel string
 }
 
-// AppConfig is the loaded configuration
+/*
+Global Config
+*/
+
 var AppConfig *Config
 
-// Load reads environment variables into Config
+/*
+Load
+
+Loads application configuration from environment variables.
+*/
+
 func Load() {
 	_ = godotenv.Load()
 
 	AppConfig = &Config{
-		Env: getEnv("ENV", "development"),
+		Env: getEnv(
+			"ENV",
+			"development",
+		),
 
-		Port: getEnv("PORT", "8083"),
+		Port: getEnv(
+			"PORT",
+			"8083",
+		),
 
-		JWTSecret: mustEnv("JWT_SECRET"),
+		JWTSecret: mustEnv(
+			"JWT_SECRET",
+		),
 
-		UserServiceURL: mustEnv("USER_SERVICE_URL"),
-		FoodServiceURL: mustEnv("FOOD_SERVICE_URL"),
+		DatabaseURL: mustEnv(
+			"DATABASE_URL",
+		),
 
-		LogLevel: getEnv("LOG_LEVEL", "info"),
+		UserServiceURL: mustEnv(
+			"USER_SERVICE_URL",
+		),
+
+		FoodServiceURL: mustEnv(
+			"FOOD_SERVICE_URL",
+		),
+
+		LogLevel: getEnv(
+			"LOG_LEVEL",
+			"info",
+		),
 	}
 }
 
-/* ===================== HELPERS ===================== */
+/*
+Helpers
+*/
 
-func getEnv(key, defaultValue string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
+func getEnv(
+	key string,
+	defaultValue string,
+) string {
+
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
+
 	return defaultValue
 }
 
 func mustEnv(key string) string {
-	v := os.Getenv(key)
-	if v == "" {
+	value := os.Getenv(key)
+
+	if value == "" {
 		log.Fatalf("%s is required", key)
 	}
-	return v
+
+	return value
 }

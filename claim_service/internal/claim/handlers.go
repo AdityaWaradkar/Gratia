@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-
+	"github.com/gorilla/mux"
 	"github.com/adityawaradkar/gratia/claim_service/internal/middleware"
 )
 
@@ -18,7 +18,9 @@ type Handler struct {
 }
 
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{
+		service: service,
+	}
 }
 
 /*
@@ -30,27 +32,36 @@ type createClaimRequest struct {
 }
 
 /*
-Handlers
+Create Claim
 */
 
-// CreateClaim allows NGO to create a claim
-func (h *Handler) CreateClaim(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateClaim(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	ctx := r.Context()
 
-	if roleFromContext(ctx) != string(ActorNGO) {
-		writeError(w, http.StatusForbidden, "only NGO can create claims")
+	if !requireRole(w, ctx, ActorNGO) {
 		return
 	}
 
-	userID := userIDFromContext(ctx)
-
 	var req createClaimRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.FoodListingID == "" {
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	claim, err := h.service.CreateClaim(ctx, req.FoodListingID, userID)
+	if req.FoodListingID == "" {
+		writeError(w, http.StatusBadRequest, "foodListingId is required")
+		return
+	}
+
+	claim, err := h.service.CreateClaim(
+		ctx,
+		req.FoodListingID,
+		userIDFromContext(ctx),
+	)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -59,71 +70,112 @@ func (h *Handler) CreateClaim(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, claim)
 }
 
-// ApproveClaim allows donor to approve a claim
-func (h *Handler) ApproveClaim(w http.ResponseWriter, r *http.Request) {
-	if roleFromContext(r.Context()) != string(ActorDonor) {
-		writeError(w, http.StatusForbidden, "only donor can approve claims")
+/*
+Donor Actions
+*/
+
+func (h *Handler) ApproveClaim(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if !requireRole(w, r.Context(), ActorDonor) {
 		return
 	}
-	h.handleDonorAction(w, r, h.service.ApproveClaim)
+
+	h.handleDonorAction(
+		w,
+		r,
+		h.service.ApproveClaim,
+	)
 }
 
-// RejectClaim allows donor to reject a claim
-func (h *Handler) RejectClaim(w http.ResponseWriter, r *http.Request) {
-	if roleFromContext(r.Context()) != string(ActorDonor) {
-		writeError(w, http.StatusForbidden, "only donor can reject claims")
+func (h *Handler) RejectClaim(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if !requireRole(w, r.Context(), ActorDonor) {
 		return
 	}
-	h.handleDonorAction(w, r, h.service.RejectClaim)
-}
 
-// CancelClaim allows NGO to cancel a claim
-func (h *Handler) CancelClaim(w http.ResponseWriter, r *http.Request) {
-	if roleFromContext(r.Context()) != string(ActorNGO) {
-		writeError(w, http.StatusForbidden, "only NGO can cancel claims")
-		return
-	}
-	h.handleNGOAction(w, r, h.service.CancelByNGO)
-}
-
-// MarkPickedUp allows NGO to mark pickup
-func (h *Handler) MarkPickedUp(w http.ResponseWriter, r *http.Request) {
-	if roleFromContext(r.Context()) != string(ActorNGO) {
-		writeError(w, http.StatusForbidden, "only NGO can mark pickup")
-		return
-	}
-	h.handleNGOAction(w, r, h.service.MarkPickedUp)
-}
-
-// MarkDelivered allows NGO to mark delivery
-func (h *Handler) MarkDelivered(w http.ResponseWriter, r *http.Request) {
-	if roleFromContext(r.Context()) != string(ActorNGO) {
-		writeError(w, http.StatusForbidden, "only NGO can mark delivery")
-		return
-	}
-	h.handleNGOAction(w, r, h.service.MarkDelivered)
+	h.handleDonorAction(
+		w,
+		r,
+		h.service.RejectClaim,
+	)
 }
 
 /*
-Shared helpers
+NGO Actions
+*/
+
+func (h *Handler) CancelClaim(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if !requireRole(w, r.Context(), ActorNGO) {
+		return
+	}
+
+	h.handleNGOAction(
+		w,
+		r,
+		h.service.CancelByNGO,
+	)
+}
+
+func (h *Handler) MarkPickedUp(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if !requireRole(w, r.Context(), ActorNGO) {
+		return
+	}
+
+	h.handleNGOAction(
+		w,
+		r,
+		h.service.MarkPickedUp,
+	)
+}
+
+func (h *Handler) MarkDelivered(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if !requireRole(w, r.Context(), ActorNGO) {
+		return
+	}
+
+	h.handleNGOAction(
+		w,
+		r,
+		h.service.MarkDelivered,
+	)
+}
+
+/*
+Shared Action Helpers
 */
 
 func (h *Handler) handleDonorAction(
 	w http.ResponseWriter,
 	r *http.Request,
-	fn func(ctx context.Context, claimID, donorUserID string) error,
+	fn func(context.Context, string, string) error,
 ) {
 	ctx := r.Context()
 
-	userID := userIDFromContext(ctx)
-	claimID := claimIDFromContext(ctx)
-
+	vars := mux.Vars(r)
+	claimID := vars["id"]
 	if claimID == "" {
 		writeError(w, http.StatusBadRequest, "missing claim id")
 		return
 	}
 
-	if err := fn(ctx, claimID, userID); err != nil {
+	if err := fn(
+		ctx,
+		claimID,
+		userIDFromContext(ctx),
+	); err != nil {
 		handleServiceError(w, err)
 		return
 	}
@@ -134,19 +186,22 @@ func (h *Handler) handleDonorAction(
 func (h *Handler) handleNGOAction(
 	w http.ResponseWriter,
 	r *http.Request,
-	fn func(ctx context.Context, claimID, ngoUserID string) error,
+	fn func(context.Context, string, string) error,
 ) {
 	ctx := r.Context()
 
-	userID := userIDFromContext(ctx)
-	claimID := claimIDFromContext(ctx)
-
+	vars := mux.Vars(r)
+	claimID := vars["id"]
 	if claimID == "" {
 		writeError(w, http.StatusBadRequest, "missing claim id")
 		return
 	}
 
-	if err := fn(ctx, claimID, userID); err != nil {
+	if err := fn(
+		ctx,
+		claimID,
+		userIDFromContext(ctx),
+	); err != nil {
 		handleServiceError(w, err)
 		return
 	}
@@ -155,11 +210,37 @@ func (h *Handler) handleNGOAction(
 }
 
 /*
-Error mapping
+Role Helper
 */
 
-func handleServiceError(w http.ResponseWriter, err error) {
+func requireRole(
+	w http.ResponseWriter,
+	ctx context.Context,
+	role ActorRole,
+) bool {
+
+	if roleFromContext(ctx) != string(role) {
+		writeError(
+			w,
+			http.StatusForbidden,
+			"insufficient permissions",
+		)
+		return false
+	}
+
+	return true
+}
+
+/*
+Error Mapping
+*/
+
+func handleServiceError(
+	w http.ResponseWriter,
+	err error,
+) {
 	switch {
+
 	case errors.Is(err, ErrUnauthorized):
 		writeError(w, http.StatusForbidden, err.Error())
 
@@ -175,32 +256,48 @@ func handleServiceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrFoodNotOpen):
 		writeError(w, http.StatusConflict, err.Error())
 
+	case errors.Is(err, ErrSelfClaim):
+		writeError(w, http.StatusConflict, err.Error())
+
 	case errors.Is(err, ErrClaimNotFound):
 		writeError(w, http.StatusNotFound, err.Error())
 
 	default:
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		writeError(
+			w,
+			http.StatusInternalServerError,
+			"internal server error",
+		)
 	}
 }
 
 /*
-Response helpers
+Response Helpers
 */
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
+func writeJSON(
+	w http.ResponseWriter,
+	status int,
+	v any,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
+
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func writeError(w http.ResponseWriter, status int, message string) {
+func writeError(
+	w http.ResponseWriter,
+	status int,
+	message string,
+) {
 	writeJSON(w, status, map[string]string{
 		"error": message,
 	})
 }
 
 /*
-Context helpers
+Context Helpers
 */
 
 func userIDFromContext(ctx context.Context) string {
@@ -209,6 +306,7 @@ func userIDFromContext(ctx context.Context) string {
 			return id
 		}
 	}
+
 	return ""
 }
 
@@ -218,14 +316,7 @@ func roleFromContext(ctx context.Context) string {
 			return role
 		}
 	}
+
 	return ""
 }
 
-func claimIDFromContext(ctx context.Context) string {
-	if v := ctx.Value("claimID"); v != nil {
-		if id, ok := v.(string); ok {
-			return id
-		}
-	}
-	return ""
-}

@@ -9,7 +9,10 @@ import (
 	"time"
 )
 
-var ErrUserNotFound = errors.New("user not found")
+var (
+	ErrUserNotFound        = errors.New("user not found")
+	ErrInvalidUserResponse = errors.New("invalid response from user service")
+)
 
 type UserClient struct {
 	baseURL    string
@@ -25,19 +28,39 @@ func NewUserClient(baseURL string) *UserClient {
 	}
 }
 
-type ngoStatusResponse struct {
+/*
+Response DTO
+*/
+
+type NGOStatusResponse struct {
 	Verified bool `json:"verified"`
 }
+
+/*
+IsNGOVerified
+
+Expected response from user_service:
+
+{
+    "verified": true
+}
+*/
 
 func (c *UserClient) IsNGOVerified(
 	ctx context.Context,
 	userID string,
 ) (bool, error) {
 
+	url := fmt.Sprintf(
+		"%s/internal/users/%s/ngo-status",
+		c.baseURL,
+		userID,
+	)
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		fmt.Sprintf("%s/internal/users/%s/ngo-status", c.baseURL, userID),
+		url,
 		nil,
 	)
 	if err != nil {
@@ -51,17 +74,31 @@ func (c *UserClient) IsNGOVerified(
 	defer resp.Body.Close()
 
 	switch resp.StatusCode {
+
 	case http.StatusOK:
 		// continue
+
 	case http.StatusNotFound:
 		return false, ErrUserNotFound
+
 	default:
-		return false, fmt.Errorf("user service returned status %d", resp.StatusCode)
+		return false, fmt.Errorf(
+			"user service returned unexpected status: %d",
+			resp.StatusCode,
+		)
 	}
 
-	var res ngoStatusResponse
+	var res NGOStatusResponse
+
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return false, err
+	}
+
+	// Defensive validation.
+	// Currently the response only contains one field,
+	// but this gives us a single place to extend later.
+	if resp.ContentLength == 0 {
+		return false, ErrInvalidUserResponse
 	}
 
 	return res.Verified, nil

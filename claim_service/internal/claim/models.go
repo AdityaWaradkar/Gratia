@@ -2,16 +2,24 @@ package claim
 
 import "time"
 
+/*
+Claim Status
+*/
+
 type ClaimStatus string
 
 const (
-	ClaimStatusRequested ClaimStatus = "REQUESTED"
-	ClaimStatusApproved  ClaimStatus = "APPROVED"
+	ClaimStatusCreated   ClaimStatus = "CREATED"
+	ClaimStatusAccepted  ClaimStatus = "ACCEPTED"
 	ClaimStatusRejected  ClaimStatus = "REJECTED"
-	ClaimStatusCancelled ClaimStatus = "CANCELLED"
 	ClaimStatusPickedUp  ClaimStatus = "PICKED_UP"
 	ClaimStatusDelivered ClaimStatus = "DELIVERED"
+	ClaimStatusCancelled ClaimStatus = "CANCELLED"
 )
+
+/*
+Claim
+*/
 
 type Claim struct {
 	ID string `json:"id" db:"id"`
@@ -23,37 +31,54 @@ type Claim struct {
 
 	Status ClaimStatus `json:"status" db:"status"`
 
-	CreatedAt time.Time  `json:"createdAt" db:"created_at"`
-	UpdatedAt time.Time  `json:"updatedAt" db:"updated_at"`
-	DeletedAt *time.Time `json:"-" db:"deleted_at"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
+
+	AcceptedAt  *time.Time `json:"acceptedAt,omitempty" db:"accepted_at"`
+	RejectedAt  *time.Time `json:"rejectedAt,omitempty" db:"rejected_at"`
+	PickedUpAt  *time.Time `json:"pickedUpAt,omitempty" db:"picked_up_at"`
+	DeliveredAt *time.Time `json:"deliveredAt,omitempty" db:"delivered_at"`
+	CancelledAt *time.Time `json:"cancelledAt,omitempty" db:"cancelled_at"`
 }
 
+/*
+Helpers
+*/
+
+// Active claims participate in the unique active-claim constraint.
 func (c Claim) IsActive() bool {
 	switch c.Status {
-	case ClaimStatusRequested, ClaimStatusApproved, ClaimStatusPickedUp:
+	case ClaimStatusCreated,
+		ClaimStatusAccepted,
+		ClaimStatusPickedUp:
 		return true
 	default:
 		return false
 	}
 }
 
+// Terminal states cannot transition further.
 func (c Claim) IsTerminal() bool {
 	switch c.Status {
-	case ClaimStatusRejected, ClaimStatusCancelled, ClaimStatusDelivered:
+	case ClaimStatusRejected,
+		ClaimStatusCancelled,
+		ClaimStatusDelivered:
 		return true
 	default:
 		return false
 	}
 }
 
+// Valid state transitions.
 func (c Claim) CanTransitionTo(next ClaimStatus) bool {
 	switch c.Status {
-	case ClaimStatusRequested:
-		return next == ClaimStatusApproved ||
+
+	case ClaimStatusCreated:
+		return next == ClaimStatusAccepted ||
 			next == ClaimStatusRejected ||
 			next == ClaimStatusCancelled
 
-	case ClaimStatusApproved:
+	case ClaimStatusAccepted:
 		return next == ClaimStatusPickedUp ||
 			next == ClaimStatusCancelled
 
@@ -65,6 +90,10 @@ func (c Claim) CanTransitionTo(next ClaimStatus) bool {
 	}
 }
 
+/*
+Actor Roles
+*/
+
 type ActorRole string
 
 const (
@@ -72,12 +101,23 @@ const (
 	ActorDonor ActorRole = "DONOR"
 )
 
-func (c Claim) CanBeModifiedBy(actor ActorRole, userID string) bool {
+/*
+Authorization
+*/
+
+func (c Claim) CanBeModifiedBy(
+	actor ActorRole,
+	userID string,
+) bool {
+
 	switch actor {
+
 	case ActorNGO:
 		return c.NGOUserID == userID
+
 	case ActorDonor:
 		return c.DonorUserID == userID
+
 	default:
 		return false
 	}

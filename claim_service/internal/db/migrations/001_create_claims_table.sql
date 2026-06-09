@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS claims (
 
     status TEXT NOT NULL CHECK (
         status IN (
-            'REQUESTED',
-            'APPROVED',
+            'CREATED',
+            'ACCEPTED',
             'REJECTED',
             'PICKED_UP',
             'DELIVERED',
@@ -18,23 +18,40 @@ CREATE TABLE IF NOT EXISTS claims (
         )
     ),
 
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    accepted_at TIMESTAMPTZ,
+    rejected_at TIMESTAMPTZ,
+    picked_up_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
+    cancelled_at TIMESTAMPTZ
 );
 
--- Ensure only one active claim per food listing
+-- Only one active claim can exist for a food listing.
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_claim_per_food
 ON claims (food_listing_id)
-WHERE status IN ('REQUESTED', 'APPROVED', 'PICKED_UP');
+WHERE status IN (
+    'CREATED',
+    'ACCEPTED',
+    'PICKED_UP'
+);
 
--- Indexes for query performance
-CREATE INDEX IF NOT EXISTS idx_claims_ngo_user
+-- Query optimisation
+
+CREATE INDEX IF NOT EXISTS idx_claims_food_listing_id
+ON claims (food_listing_id);
+
+CREATE INDEX IF NOT EXISTS idx_claims_ngo_user_id
 ON claims (ngo_user_id);
 
-CREATE INDEX IF NOT EXISTS idx_claims_donor_user
+CREATE INDEX IF NOT EXISTS idx_claims_donor_user_id
 ON claims (donor_user_id);
 
-CREATE INDEX IF NOT EXISTS idx_claims_food
-ON claims (food_listing_id);
+CREATE INDEX IF NOT EXISTS idx_claims_status
+ON claims (status);
+
+CREATE INDEX IF NOT EXISTS idx_claims_created_at
+ON claims (created_at DESC);
 
 COMMIT;

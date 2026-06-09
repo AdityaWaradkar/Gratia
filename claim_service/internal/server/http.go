@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -25,60 +24,64 @@ func NewServer(
 
 	r := mux.NewRouter()
 
-	// health check
+	/*
+		Health Check
+	*/
+
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodGet)
 
-	// protected routes
+	/*
+		Protected Routes
+	*/
+
 	claimsRouter := r.PathPrefix("/claims").Subrouter()
 	claimsRouter.Use(authMiddleware.RequireAuth)
 
-	claimsRouter.HandleFunc("", claimHandler.CreateClaim).
-		Methods(http.MethodPost)
+	/*
+		Claim Creation
+	*/
 
-	claimByID := claimsRouter.PathPrefix("/{id}").Subrouter()
-	claimByID.Use(claimIDMiddleware)
+	claimsRouter.HandleFunc(
+		"",
+		claimHandler.CreateClaim,
+	).Methods(http.MethodPost)
 
-	claimByID.HandleFunc("/approve", claimHandler.ApproveClaim).
-		Methods(http.MethodPost)
+	/*
+		Claim Actions
+	*/
 
-	claimByID.HandleFunc("/reject", claimHandler.RejectClaim).
-		Methods(http.MethodPost)
+	claimsRouter.HandleFunc(
+		"/{id}/approve",
+		claimHandler.ApproveClaim,
+	).Methods(http.MethodPost)
 
-	claimByID.HandleFunc("/cancel", claimHandler.CancelClaim).
-		Methods(http.MethodPost)
+	claimsRouter.HandleFunc(
+		"/{id}/reject",
+		claimHandler.RejectClaim,
+	).Methods(http.MethodPost)
 
-	claimByID.HandleFunc("/pickup", claimHandler.MarkPickedUp).
-		Methods(http.MethodPost)
+	claimsRouter.HandleFunc(
+		"/{id}/cancel",
+		claimHandler.CancelClaim,
+	).Methods(http.MethodPost)
 
-	claimByID.HandleFunc("/deliver", claimHandler.MarkDelivered).
-		Methods(http.MethodPost)
+	claimsRouter.HandleFunc(
+		"/{id}/pickup",
+		claimHandler.MarkPickedUp,
+	).Methods(http.MethodPost)
 
-	return &Server{router: r}
+	claimsRouter.HandleFunc(
+		"/{id}/deliver",
+		claimHandler.MarkDelivered,
+	).Methods(http.MethodPost)
+
+	return &Server{
+		router: r,
+	}
 }
 
 func (s *Server) Handler() http.Handler {
 	return s.router
-}
-
-/*
-Context middleware
-*/
-
-type claimIDContextKey struct{}
-
-func claimIDMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		claimID := vars["id"]
-
-		if claimID == "" {
-			http.Error(w, "missing claim id", http.StatusBadRequest)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), claimIDContextKey{}, claimID)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
 }
