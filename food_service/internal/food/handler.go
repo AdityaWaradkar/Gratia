@@ -15,29 +15,37 @@ type Handler struct {
 }
 
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{
+		service: service,
+	}
 }
 
 /* ===================== REQUEST MODELS ===================== */
 
 type CreateFoodListingRequest struct {
-	Title       string     `json:"title"`
-	Description *string    `json:"description,omitempty"`
-	Quantity    int        `json:"quantity"`
-	Unit        string     `json:"unit"`
-	ExpiryTime  time.Time  `json:"expiryTime"`
-	Location    string     `json:"location"`
-	ImageURL    *string    `json:"imageUrl,omitempty"`
+	Title       string    `json:"title"`
+	Description *string   `json:"description,omitempty"`
+	Quantity    int       `json:"quantity"`
+	Unit        string    `json:"unit"`
+	ExpiryTime  time.Time `json:"expiryTime"`
+	Location    string    `json:"location"`
+	ImageURL    *string   `json:"imageUrl,omitempty"`
 }
 
 type UpdateFoodListingRequest struct {
-	Title       string     `json:"title"`
-	Description *string    `json:"description,omitempty"`
-	Quantity    int        `json:"quantity"`
-	Unit        string     `json:"unit"`
-	ExpiryTime  time.Time  `json:"expiryTime"`
-	Location    string     `json:"location"`
-	ImageURL    *string    `json:"imageUrl,omitempty"`
+	Title       string    `json:"title"`
+	Description *string   `json:"description,omitempty"`
+	Quantity    int       `json:"quantity"`
+	Unit        string    `json:"unit"`
+	ExpiryTime  time.Time `json:"expiryTime"`
+	Location    string    `json:"location"`
+	ImageURL    *string   `json:"imageUrl,omitempty"`
+}
+
+type ClaimValidationResponse struct {
+	FoodID    string `json:"foodId"`
+	Claimable bool   `json:"claimable"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 /* ===================== HELPERS ===================== */
@@ -45,17 +53,28 @@ type UpdateFoodListingRequest struct {
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
+
 	_ = json.NewEncoder(w).Encode(data)
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"message": msg})
+	writeJSON(
+		w,
+		status,
+		map[string]string{
+			"message": msg,
+		},
+	)
 }
 
 /* ===================== CREATE ===================== */
 
-// POST /food
-func (h *Handler) CreateFoodListing(w http.ResponseWriter, r *http.Request) {
+// POST /foods
+func (h *Handler) CreateFoodListing(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+
 	userID := middleware.UserID(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
@@ -63,6 +82,7 @@ func (h *Handler) CreateFoodListing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateFoodListingRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -89,15 +109,22 @@ func (h *Handler) CreateFoodListing(w http.ResponseWriter, r *http.Request) {
 
 /* ===================== READ ===================== */
 
-// GET /food/{id}
-func (h *Handler) GetFoodListing(w http.ResponseWriter, r *http.Request) {
+// GET /foods/{id}
+func (h *Handler) GetFoodListing(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+
 	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "listing id required")
 		return
 	}
 
-	listing, err := h.service.GetFoodListing(r.Context(), id)
+	listing, err := h.service.GetFoodListing(
+		r.Context(),
+		id,
+	)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "food listing not found")
 		return
@@ -106,11 +133,21 @@ func (h *Handler) GetFoodListing(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, listing)
 }
 
-// GET /food
-func (h *Handler) ListOpenFoodListings(w http.ResponseWriter, r *http.Request) {
-	listings, err := h.service.ListOpenFoodListings(r.Context())
+// GET /foods
+func (h *Handler) ListAvailableFoodListings(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+
+	listings, err := h.service.ListAvailableFoodListings(
+		r.Context(),
+	)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to fetch listings")
+		writeError(
+			w,
+			http.StatusInternalServerError,
+			"failed to fetch listings",
+		)
 		return
 	}
 
@@ -119,8 +156,12 @@ func (h *Handler) ListOpenFoodListings(w http.ResponseWriter, r *http.Request) {
 
 /* ===================== UPDATE ===================== */
 
-// PUT /food/{id}
-func (h *Handler) UpdateFoodListing(w http.ResponseWriter, r *http.Request) {
+// PUT /foods/{id}
+func (h *Handler) UpdateFoodListing(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+
 	userID := middleware.UserID(r.Context())
 	if userID == "" {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
@@ -134,6 +175,7 @@ func (h *Handler) UpdateFoodListing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateFoodListingRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -150,8 +192,101 @@ func (h *Handler) UpdateFoodListing(w http.ResponseWriter, r *http.Request) {
 		ImageURL:    req.ImageURL,
 	}
 
-	if err := h.service.UpdateFoodListing(r.Context(), userID, listing); err != nil {
+	if err := h.service.UpdateFoodListing(
+		r.Context(),
+		userID,
+		listing,
+	); err != nil {
 		writeError(w, http.StatusForbidden, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+/* ===================== CANCEL ===================== */
+
+// DELETE /foods/{id}
+func (h *Handler) CancelFoodListing(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+
+	userID := middleware.UserID(r.Context())
+	if userID == "" {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "listing id required")
+		return
+	}
+
+	if err := h.service.CancelFoodListing(
+		r.Context(),
+		userID,
+		id,
+	); err != nil {
+		writeError(w, http.StatusForbidden, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+/* ===================== INTERNAL ===================== */
+
+// GET /internal/foods/{id}/validate
+func (h *Handler) ValidateFoodClaim(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+
+	id := r.PathValue("id")
+
+	claimable, reason, err := h.service.IsClaimable(
+		r.Context(),
+		id,
+	)
+	if err != nil {
+		writeError(
+			w,
+			http.StatusInternalServerError,
+			"validation failed",
+		)
+		return
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		ClaimValidationResponse{
+			FoodID:    id,
+			Claimable: claimable,
+			Reason:    reason,
+		},
+	)
+}
+
+// PATCH /internal/foods/{id}/claim
+func (h *Handler) MarkFoodClaimed(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+
+	id := r.PathValue("id")
+
+	if err := h.service.MarkClaimed(
+		r.Context(),
+		id,
+	); err != nil {
+		writeError(
+			w,
+			http.StatusBadRequest,
+			err.Error(),
+		)
 		return
 	}
 

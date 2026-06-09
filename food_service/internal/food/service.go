@@ -14,7 +14,10 @@ type Service struct {
 }
 
 // NewService creates food service
-func NewService(repo Repository, userClient UserClient) *Service {
+func NewService(
+	repo Repository,
+	userClient UserClient,
+) *Service {
 	return &Service{
 		repo:       repo,
 		userClient: userClient,
@@ -40,11 +43,11 @@ func (s *Service) CreateFoodListing(
 		return nil, errors.New("unauthorized")
 	}
 
-	// Validate donor via User Service
 	isDonor, err := s.userClient.IsDonor(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
+
 	if !isDonor {
 		return nil, errors.New("only donors can create food listings")
 	}
@@ -61,7 +64,7 @@ func (s *Service) CreateFoodListing(
 		return nil, errors.New("unit is required")
 	}
 
-	if expiryTime.Before(time.Now()) {
+	if expiryTime.Before(time.Now().UTC()) {
 		return nil, errors.New("expiry time must be in the future")
 	}
 
@@ -78,7 +81,7 @@ func (s *Service) CreateFoodListing(
 		ExpiryTime:  expiryTime,
 		Location:    location,
 		ImageURL:    imageURL,
-		Status:      FoodStatusOpen,
+		Status:      FoodStatusAvailable,
 	}
 
 	if err := s.repo.CreateFoodListing(ctx, listing); err != nil {
@@ -103,9 +106,15 @@ func (s *Service) GetFoodListing(
 	return s.repo.GetFoodListingByID(ctx, id)
 }
 
-// ListOpenFoodListings returns only OPEN listings
-func (s *Service) ListOpenFoodListings(ctx context.Context) ([]*FoodListing, error) {
-	return s.repo.ListFoodListings(ctx, FoodStatusOpen)
+// ListAvailableFoodListings returns available listings
+func (s *Service) ListAvailableFoodListings(
+	ctx context.Context,
+) ([]*FoodListing, error) {
+
+	return s.repo.ListFoodListings(
+		ctx,
+		FoodStatusAvailable,
+	)
 }
 
 /* ===================== UPDATE ===================== */
@@ -121,7 +130,10 @@ func (s *Service) UpdateFoodListing(
 		return errors.New("unauthorized")
 	}
 
-	existing, err := s.repo.GetFoodListingByID(ctx, listing.ID)
+	existing, err := s.repo.GetFoodListingByID(
+		ctx,
+		listing.ID,
+	)
 	if err != nil {
 		return errors.New("food listing not found")
 	}
@@ -130,20 +142,132 @@ func (s *Service) UpdateFoodListing(
 		return errors.New("forbidden")
 	}
 
-	if existing.Status != FoodStatusOpen {
-		return errors.New("only open listings can be updated")
+	if existing.Status != FoodStatusAvailable {
+		return errors.New("only available listings can be updated")
 	}
 
-	if listing.ExpiryTime.Before(time.Now()) {
+	if strings.TrimSpace(listing.Title) == "" {
+		return errors.New("title is required")
+	}
+
+	if listing.Quantity <= 0 {
+		return errors.New("quantity must be greater than zero")
+	}
+
+	if strings.TrimSpace(listing.Unit) == "" {
+		return errors.New("unit is required")
+	}
+
+	if strings.TrimSpace(listing.Location) == "" {
+		return errors.New("location is required")
+	}
+
+	if listing.ExpiryTime.Before(time.Now().UTC()) {
 		return errors.New("expiry time must be in the future")
 	}
 
-	return s.repo.UpdateFoodListing(ctx, listing)
+	return s.repo.UpdateFoodListing(
+		ctx,
+		listing,
+	)
 }
 
-/* ===================== STATUS ===================== */
+/* ===================== CANCEL ===================== */
 
-// MarkListingExpired is used by cron / background jobs
-func (s *Service) MarkListingExpired(ctx context.Context, id string) error {
-	return s.repo.UpdateFoodStatus(ctx, id, FoodStatusExpired)
+// CancelFoodListing allows donor to cancel own listing
+func (s *Service) CancelFoodListing(
+	ctx context.Context,
+	userID string,
+	listingID string,
+) error {
+
+	if userID == "" {
+		return errors.New("unauthorized")
+	}
+
+	listing, err := s.repo.GetFoodListingByID(
+		ctx,
+		listingID,
+	)
+	if err != nil {
+		return errors.New("food listing not found")
+	}
+
+	if listing.DonorUserID != userID {
+		return errors.New("forbidden")
+	}
+
+	if listing.Status != FoodStatusAvailable {
+		return errors.New("only available listings can be cancelled")
+	}
+
+	return s.repo.UpdateFoodStatus(
+		ctx,
+		listingID,
+		FoodStatusCancelled,
+	)
+}
+
+/* ===================== CLAIM VALIDATION ===================== */
+
+// IsClaimable is used internally by claim_service
+func (s *Service) IsClaimable(
+	ctx context.Context,
+	id string,
+) (bool, string, error) {
+
+	listing, err := s.repo.GetFoodListingByID(
+		ctx,
+		id,
+	)
+	if err != nil {
+		return false, "NOT_FOUND", nil
+	}
+
+	if listing.Status != FoodStatusAvailable {
+		return false, listing.Status, nil
+	}
+
+	if listing.ExpiryTime.Before(time.Now().UTC()) {
+		return false, FoodStatusExpired, nil
+	}
+
+	return true, "", nil
+}
+
+/* ===================== CLAIM LOCK ===================== */
+
+// MarkClaimed is called by claim_service
+func (s *Service) MarkClaimed(
+	ctx context.Context,
+	id string,
+) error {
+
+	listing, err := s.repo.GetFoodListingByID(
+		ctx,
+		id,
+	)
+	if err != nil {
+		return err
+	}
+
+	if listing.Status != FoodStatusAvailable {
+		return errors.New("food listing is not available")
+	}
+
+	return s.repo.UpdateFoodStatus(
+		ctx,
+		id,
+		FoodStatusClaimed,
+	)
+}
+
+/* ===================== EXPIRY ===================== */
+
+// ExpireListings is used by background jobs
+func (s *Service) ExpireListings(
+	ctx context.Context,
+) error {
+
+	return s.repo.ExpireFoodListings(ctx)
 }

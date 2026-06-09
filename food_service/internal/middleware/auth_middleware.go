@@ -20,30 +20,56 @@ func Auth(next http.Handler) http.Handler {
 
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			writeError(w, http.StatusUnauthorized, "authorization header missing")
+			writeError(
+				w,
+				http.StatusUnauthorized,
+				"authorization header missing",
+			)
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
+
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			writeError(w, http.StatusUnauthorized, "invalid authorization header")
+			writeError(
+				w,
+				http.StatusUnauthorized,
+				"invalid authorization header",
+			)
 			return
 		}
 
 		tokenStr := parts[1]
 
-		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-			return []byte(config.AppConfig.JWTSecret), nil
-		})
+		token, err := jwt.Parse(
+			tokenStr,
+			func(t *jwt.Token) (interface{}, error) {
+
+				// Ensure expected signing algorithm
+				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, jwt.ErrSignatureInvalid
+				}
+
+				return []byte(config.AppConfig.JWTSecret), nil
+			},
+		)
 
 		if err != nil || !token.Valid {
-			writeError(w, http.StatusUnauthorized, "invalid or expired token")
+			writeError(
+				w,
+				http.StatusUnauthorized,
+				"invalid or expired token",
+			)
 			return
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			writeError(w, http.StatusUnauthorized, "invalid token claims")
+			writeError(
+				w,
+				http.StatusUnauthorized,
+				"invalid token claims",
+			)
 			return
 		}
 
@@ -51,19 +77,49 @@ func Auth(next http.Handler) http.Handler {
 		role, _ := claims["role"].(string)
 
 		if userID == "" || role == "" {
-			writeError(w, http.StatusUnauthorized, "invalid token claims")
+			writeError(
+				w,
+				http.StatusUnauthorized,
+				"invalid token claims",
+			)
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), UserIDKey, userID)
-		ctx = context.WithValue(ctx, UserRoleKey, role)
+		ctx := context.WithValue(
+			r.Context(),
+			UserIDKey,
+			userID,
+		)
 
-		next.ServeHTTP(w, r.WithContext(ctx))
+		ctx = context.WithValue(
+			ctx,
+			UserRoleKey,
+			role,
+		)
+
+		next.ServeHTTP(
+			w,
+			r.WithContext(ctx),
+		)
 	})
 }
 
-func writeError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
+func writeError(
+	w http.ResponseWriter,
+	status int,
+	message string,
+) {
+
+	w.Header().Set(
+		"Content-Type",
+		"application/json",
+	)
+
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(errorResponse{Message: message})
+
+	_ = json.NewEncoder(w).Encode(
+		errorResponse{
+			Message: message,
+		},
+	)
 }

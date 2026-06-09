@@ -2,19 +2,21 @@ package food
 
 import "time"
 
-// FoodListing represents a food item listed by a donor
+// FoodListing represents a food donation listing
 type FoodListing struct {
-	ID           string    `json:"id"`
-	DonorUserID  string    `json:"donorUserId"`
+	ID string `json:"id"`
 
-	Title       string     `json:"title"`
-	Description *string    `json:"description,omitempty"`
+	DonorUserID string `json:"donorUserId"`
+
+	Title       string  `json:"title"`
+	Description *string `json:"description,omitempty"`
 
 	Quantity int    `json:"quantity"`
 	Unit     string `json:"unit"`
 
 	ExpiryTime time.Time `json:"expiryTime"`
-	Location   string    `json:"location"`
+
+	Location string `json:"location"`
 
 	ImageURL *string `json:"imageUrl,omitempty"`
 
@@ -25,7 +27,8 @@ type FoodListing struct {
 }
 
 const (
-	FoodStatusOpen    = "OPEN"
-	FoodStatusClaimed = "CLAIMED"
-	FoodStatusExpired = "EXPIRED"
+	FoodStatusAvailable = "AVAILABLE"
+	FoodStatusClaimed   = "CLAIMED"
+	FoodStatusExpired   = "EXPIRED"
+	FoodStatusCancelled = "CANCELLED"
 )

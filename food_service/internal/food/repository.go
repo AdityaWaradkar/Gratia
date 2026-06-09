@@ -11,10 +11,16 @@ import (
 // Repository defines DB operations for food_service
 type Repository interface {
 	CreateFoodListing(ctx context.Context, listing *FoodListing) error
+
 	GetFoodListingByID(ctx context.Context, id string) (*FoodListing, error)
+
 	ListFoodListings(ctx context.Context, status string) ([]*FoodListing, error)
+
 	UpdateFoodListing(ctx context.Context, listing *FoodListing) error
+
 	UpdateFoodStatus(ctx context.Context, id string, status string) error
+
+	ExpireFoodListings(ctx context.Context) error
 }
 
 type repository struct {
@@ -23,7 +29,9 @@ type repository struct {
 
 // NewRepository creates a new food repository
 func NewRepository(db *pgxpool.Pool) Repository {
-	return &repository{db: db}
+	return &repository{
+		db: db,
+	}
 }
 
 /* ===================== CREATE ===================== */
@@ -66,7 +74,11 @@ func (r *repository) CreateFoodListing(ctx context.Context, listing *FoodListing
 
 /* ===================== READ ===================== */
 
-func (r *repository) GetFoodListingByID(ctx context.Context, id string) (*FoodListing, error) {
+func (r *repository) GetFoodListingByID(
+	ctx context.Context,
+	id string,
+) (*FoodListing, error) {
+
 	query := `
 		SELECT
 			id,
@@ -85,30 +97,35 @@ func (r *repository) GetFoodListingByID(ctx context.Context, id string) (*FoodLi
 		WHERE id = $1
 	`
 
-	l := &FoodListing{}
+	listing := &FoodListing{}
+
 	err := r.db.QueryRow(ctx, query, id).Scan(
-		&l.ID,
-		&l.DonorUserID,
-		&l.Title,
-		&l.Description,
-		&l.Quantity,
-		&l.Unit,
-		&l.ExpiryTime,
-		&l.Location,
-		&l.ImageURL,
-		&l.Status,
-		&l.CreatedAt,
-		&l.UpdatedAt,
+		&listing.ID,
+		&listing.DonorUserID,
+		&listing.Title,
+		&listing.Description,
+		&listing.Quantity,
+		&listing.Unit,
+		&listing.ExpiryTime,
+		&listing.Location,
+		&listing.ImageURL,
+		&listing.Status,
+		&listing.CreatedAt,
+		&listing.UpdatedAt,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return l, nil
+	return listing, nil
 }
 
-func (r *repository) ListFoodListings(ctx context.Context, status string) ([]*FoodListing, error) {
+func (r *repository) ListFoodListings(
+	ctx context.Context,
+	status string,
+) ([]*FoodListing, error) {
+
 	query := `
 		SELECT
 			id,
@@ -137,24 +154,26 @@ func (r *repository) ListFoodListings(ctx context.Context, status string) ([]*Fo
 	var listings []*FoodListing
 
 	for rows.Next() {
-		l := &FoodListing{}
+		listing := &FoodListing{}
+
 		if err := rows.Scan(
-			&l.ID,
-			&l.DonorUserID,
-			&l.Title,
-			&l.Description,
-			&l.Quantity,
-			&l.Unit,
-			&l.ExpiryTime,
-			&l.Location,
-			&l.ImageURL,
-			&l.Status,
-			&l.CreatedAt,
-			&l.UpdatedAt,
+			&listing.ID,
+			&listing.DonorUserID,
+			&listing.Title,
+			&listing.Description,
+			&listing.Quantity,
+			&listing.Unit,
+			&listing.ExpiryTime,
+			&listing.Location,
+			&listing.ImageURL,
+			&listing.Status,
+			&listing.CreatedAt,
+			&listing.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
-		listings = append(listings, l)
+
+		listings = append(listings, listing)
 	}
 
 	return listings, nil
@@ -162,7 +181,11 @@ func (r *repository) ListFoodListings(ctx context.Context, status string) ([]*Fo
 
 /* ===================== UPDATE ===================== */
 
-func (r *repository) UpdateFoodListing(ctx context.Context, listing *FoodListing) error {
+func (r *repository) UpdateFoodListing(
+	ctx context.Context,
+	listing *FoodListing,
+) error {
+
 	query := `
 		UPDATE food_listings
 		SET
@@ -188,7 +211,7 @@ func (r *repository) UpdateFoodListing(ctx context.Context, listing *FoodListing
 		listing.ExpiryTime,
 		listing.Location,
 		listing.ImageURL,
-		time.Now(),
+		time.Now().UTC(),
 	)
 
 	if err != nil {
@@ -202,17 +225,24 @@ func (r *repository) UpdateFoodListing(ctx context.Context, listing *FoodListing
 	return nil
 }
 
-func (r *repository) UpdateFoodStatus(ctx context.Context, id string, status string) error {
+func (r *repository) UpdateFoodStatus(
+	ctx context.Context,
+	id string,
+	status string,
+) error {
+
 	cmd, err := r.db.Exec(
 		ctx,
 		`
 		UPDATE food_listings
-		SET status = $2, updated_at = $3
+		SET
+			status = $2,
+			updated_at = $3
 		WHERE id = $1
 		`,
 		id,
 		status,
-		time.Now(),
+		time.Now().UTC(),
 	)
 
 	if err != nil {
@@ -224,4 +254,29 @@ func (r *repository) UpdateFoodStatus(ctx context.Context, id string, status str
 	}
 
 	return nil
+}
+
+/* ===================== EXPIRY ===================== */
+
+func (r *repository) ExpireFoodListings(
+	ctx context.Context,
+) error {
+
+	_, err := r.db.Exec(
+		ctx,
+		`
+		UPDATE food_listings
+		SET
+			status = $1,
+			updated_at = $2
+		WHERE
+			status = $3
+			AND expiry_time < NOW()
+		`,
+		FoodStatusExpired,
+		time.Now().UTC(),
+		FoodStatusAvailable,
+	)
+
+	return err
 }

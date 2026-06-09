@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/adityawaradkar/gratia/food_service/internal/config"
 	"github.com/adityawaradkar/gratia/food_service/internal/db"
@@ -31,6 +33,9 @@ func main() {
 	// Initialize service
 	service := food.NewService(repo, userClient)
 
+	// Start expiry worker
+	go startExpiryWorker(service)
+
 	// Initialize handler
 	handler := food.NewHandler(service)
 
@@ -39,7 +44,27 @@ func main() {
 
 	// Start HTTP server
 	log.Printf("food_service running on port %s", config.AppConfig.Port)
-	if err := http.ListenAndServe(":"+config.AppConfig.Port, router); err != nil {
+
+	if err := http.ListenAndServe(
+		":"+config.AppConfig.Port,
+		router,
+	); err != nil {
 		log.Fatalf("server failed: %v", err)
+	}
+}
+
+func startExpiryWorker(service *food.Service) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if err := service.ExpireListings(
+			context.Background(),
+		); err != nil {
+			log.Printf(
+				"expiry worker error: %v",
+				err,
+			)
+		}
 	}
 }

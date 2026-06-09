@@ -1,0 +1,445 @@
+openapi: 3.0.3
+
+info:
+  title: Gratia Food Service API
+  version: 1.0.0
+  description: |
+    Food donation inventory service for the Gratia platform.
+
+    Features:
+    - Food listing creation
+    - Food listing retrieval
+    - Food listing updates
+    - Food listing cancellation
+    - Food availability validation
+    - Claim lifecycle support
+    - Internal service-to-service APIs
+    - Protected authenticated endpoints
+
+  contact:
+    name: Aditya Waradkar
+    email: aditya@example.com
+
+servers:
+  - url: http://localhost:8082
+    description: Local Development
+
+  - url: https://food.gratia.dev
+    description: Development Server
+
+tags:
+  - name: Food Listings
+    description: Food inventory management operations
+
+  - name: Internal
+    description: Internal service-to-service endpoints
+
+  - name: Monitoring
+    description: Health monitoring endpoints
+
+security:
+  - BearerAuth: []
+
+paths:
+
+  /foods:
+    post:
+      summary: Create food listing
+      operationId: createFoodListing
+
+      tags:
+        - Food Listings
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFoodListingRequest'
+
+      responses:
+        '201':
+          description: Food listing created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FoodListing'
+
+        '400':
+          description: Invalid food listing data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List available food listings
+      operationId: listAvailableFoodListings
+
+      tags:
+        - Food Listings
+
+      responses:
+        '200':
+          description: Available food listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FoodListing'
+
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /foods/{id}:
+    get:
+      summary: Get food listing
+      operationId: getFoodListing
+
+      tags:
+        - Food Listings
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        '200':
+          description: Food listing fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FoodListing'
+
+        '404':
+          description: Food listing not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update food listing
+      operationId: updateFoodListing
+
+      tags:
+        - Food Listings
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFoodListingRequest'
+
+      responses:
+        '204':
+          description: Food listing updated successfully
+
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Food listing not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Cancel food listing
+      operationId: cancelFoodListing
+
+      tags:
+        - Food Listings
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        '204':
+          description: Food listing cancelled successfully
+
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Food listing not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/foods/{id}/validate:
+    get:
+      summary: Validate food availability
+      operationId: validateFoodClaim
+
+      security: []
+
+      tags:
+        - Internal
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimValidationResponse'
+
+  /internal/foods/{id}/claim:
+    patch:
+      summary: Mark food listing as claimed
+      operationId: markFoodClaimed
+
+      security: []
+
+      tags:
+        - Internal
+
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+        '204':
+          description: Food marked as claimed
+
+        '400':
+          description: Food listing is not claimable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Service health check
+      operationId: healthCheck
+
+      security: []
+
+      tags:
+        - Monitoring
+
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: food service healthy
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    CreateFoodListingRequest:
+      type: object
+      additionalProperties: false
+
+      required:
+        - title
+        - quantity
+        - unit
+        - expiryTime
+        - location
+
+      properties:
+        title:
+          type: string
+          example: Vegetable Biryani
+
+        description:
+          type: string
+          nullable: true
+          example: Freshly prepared lunch
+
+        quantity:
+          type: integer
+          minimum: 1
+          example: 25
+
+        unit:
+          type: string
+          example: plates
+
+        expiryTime:
+          type: string
+          format: date-time
+
+        location:
+          type: string
+          example: Navi Mumbai
+
+        imageUrl:
+          type: string
+          nullable: true
+
+    UpdateFoodListingRequest:
+      type: object
+      additionalProperties: false
+
+      required:
+        - title
+        - quantity
+        - unit
+        - expiryTime
+        - location
+
+      properties:
+        title:
+          type: string
+
+        description:
+          type: string
+          nullable: true
+
+        quantity:
+          type: integer
+          minimum: 1
+
+        unit:
+          type: string
+
+        expiryTime:
+          type: string
+          format: date-time
+
+        location:
+          type: string
+
+        imageUrl:
+          type: string
+          nullable: true
+
+    FoodListing:
+      type: object
+
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        donorUserId:
+          type: string
+          format: uuid
+
+        title:
+          type: string
+
+        description:
+          type: string
+          nullable: true
+
+        quantity:
+          type: integer
+
+        unit:
+          type: string
+
+        expiryTime:
+          type: string
+          format: date-time
+
+        location:
+          type: string
+
+        imageUrl:
+          type: string
+          nullable: true
+
+        status:
+          type: string
+          enum:
+            - AVAILABLE
+            - CLAIMED
+            - EXPIRED
+            - CANCELLED
+
+        createdAt:
+          type: string
+          format: date-time
+
+        updatedAt:
+          type: string
+          format: date-time
+
+    ClaimValidationResponse:
+      type: object
+
+      properties:
+        foodId:
+          type: string
+          format: uuid
+
+        claimable:
+          type: boolean
+
+        reason:
+          type: string
+          nullable: true
+
+    ErrorResponse:
+      type: object
+
+      properties:
+        message:
+          type: string

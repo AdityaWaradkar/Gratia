@@ -31,8 +31,12 @@ func NewUserClient(baseURL string) UserClient {
 
 /* ===================== DONOR ===================== */
 
-// IsDonor checks if user has a donor profile
-func (u *userClient) IsDonor(ctx context.Context, userID string) (bool, error) {
+// IsDonor checks whether a donor profile exists
+func (u *userClient) IsDonor(
+	ctx context.Context,
+	userID string,
+) (bool, error) {
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -49,21 +53,27 @@ func (u *userClient) IsDonor(ctx context.Context, userID string) (bool, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
+	switch resp.StatusCode {
+
+	case http.StatusOK:
+		return true, nil
+
+	case http.StatusNotFound:
 		return false, nil
-	}
 
-	if resp.StatusCode != http.StatusOK {
-		return false, errors.New("user service error")
+	default:
+		return false, errors.New("user service returned unexpected status")
 	}
-
-	return true, nil
 }
 
 /* ===================== NGO ===================== */
 
-// IsVerifiedNGO checks if user has a verified NGO profile
-func (u *userClient) IsVerifiedNGO(ctx context.Context, userID string) (bool, error) {
+// IsVerifiedNGO checks if NGO profile exists and is verified
+func (u *userClient) IsVerifiedNGO(
+	ctx context.Context,
+	userID string,
+) (bool, error) {
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -85,7 +95,7 @@ func (u *userClient) IsVerifiedNGO(ctx context.Context, userID string) (bool, er
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return false, errors.New("user service error")
+		return false, errors.New("user service returned unexpected status")
 	}
 
 	var result struct {
