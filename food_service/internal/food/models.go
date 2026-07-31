@@ -26,6 +26,7 @@ type FoodListing struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// Food status constants
 const (
 	FoodStatusAvailable = "AVAILABLE"
 	FoodStatusClaimed   = "CLAIMED"

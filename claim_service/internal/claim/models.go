@@ -2,10 +2,7 @@ package claim
 
 import "time"
 
-/*
-Claim Status
-*/
-
+// ClaimStatus represents the possible states of a claim
 type ClaimStatus string
 
 const (
@@ -17,10 +14,7 @@ const (
 	ClaimStatusCancelled ClaimStatus = "CANCELLED"
 )
 
-/*
-Claim
-*/
-
+// Claim represents a food claim with its associated metadata and status
 type Claim struct {
 	ID string `json:"id" db:"id"`
 
@@ -41,11 +35,7 @@ type Claim struct {
 	CancelledAt *time.Time `json:"cancelledAt,omitempty" db:"cancelled_at"`
 }
 
-/*
-Helpers
-*/
-
-// Active claims participate in the unique active-claim constraint.
+// IsActive returns true if the claim is in an active state
 func (c Claim) IsActive() bool {
 	switch c.Status {
 	case ClaimStatusCreated,
@@ -57,7 +47,7 @@ func (c Claim) IsActive() bool {
 	}
 }
 
-// Terminal states cannot transition further.
+// IsTerminal returns true if the claim is in a terminal state
 func (c Claim) IsTerminal() bool {
 	switch c.Status {
 	case ClaimStatusRejected,
@@ -69,7 +59,7 @@ func (c Claim) IsTerminal() bool {
 	}
 }
 
-// Valid state transitions.
+// CanTransitionTo checks if the claim can transition to the given status
 func (c Claim) CanTransitionTo(next ClaimStatus) bool {
 	switch c.Status {
 
@@ -90,10 +80,7 @@ func (c Claim) CanTransitionTo(next ClaimStatus) bool {
 	}
 }
 
-/*
-Actor Roles
-*/
-
+// ActorRole defines the possible actor roles in the system
 type ActorRole string
 
 const (
@@ -101,10 +88,7 @@ const (
 	ActorDonor ActorRole = "DONOR"
 )
 
-/*
-Authorization
-*/
-
+// CanBeModifiedBy checks if the claim can be modified by the given actor
 func (c Claim) CanBeModifiedBy(
 	actor ActorRole,
 	userID string,

@@ -2,9 +2,7 @@ package user
 
 import "time"
 
-/* ===================== DONOR PROFILE ===================== */
-
-// DonorProfile represents a donor in the system
+// DonorProfile represents a donor user profile in the system
 type DonorProfile struct {
 	ID        string     `json:"id"`
 	UserID    string     `json:"userId"`
@@ -15,9 +13,7 @@ type DonorProfile struct {
 	UpdatedAt time.Time  `json:"updatedAt"`
 }
 
-/* ===================== NGO PROFILE ===================== */
-
-// NGOProfile represents an NGO entity
+// NGOProfile represents an NGO user profile in the system
 type NGOProfile struct {
 	ID             string     `json:"id"`
 	UserID         string     `json:"userId"`

@@ -11,6 +11,7 @@ import (
 
 var ErrClaimNotFound = errors.New("claim not found")
 
+// ClaimRepository defines the interface for claim data access operations
 type ClaimRepository interface {
 	Create(ctx context.Context, tx *sqlx.Tx, claim *Claim) error
 
@@ -54,16 +55,14 @@ type claimRepository struct {
 	db *sqlx.DB
 }
 
+// NewClaimRepository creates a new claim repository instance
 func NewClaimRepository(db *sqlx.DB) ClaimRepository {
 	return &claimRepository{
 		db: db,
 	}
 }
 
-/*
-Create
-*/
-
+// Create inserts a new claim record into the database
 func (r *claimRepository) Create(
 	ctx context.Context,
 	tx *sqlx.Tx,
@@ -95,10 +94,7 @@ func (r *claimRepository) Create(
 	return err
 }
 
-/*
-Reads
-*/
-
+// GetByID retrieves a claim by its unique identifier
 func (r *claimRepository) GetByID(
 	ctx context.Context,
 	id string,
@@ -125,6 +121,7 @@ func (r *claimRepository) GetByID(
 	return &claim, nil
 }
 
+// GetByIDForUpdate retrieves a claim with row locking for update operations
 func (r *claimRepository) GetByIDForUpdate(
 	ctx context.Context,
 	tx *sqlx.Tx,
@@ -153,6 +150,7 @@ func (r *claimRepository) GetByIDForUpdate(
 	return &claim, nil
 }
 
+// GetActiveByFoodID retrieves an active claim for a specific food listing
 func (r *claimRepository) GetActiveByFoodID(
 	ctx context.Context,
 	foodListingID string,
@@ -185,6 +183,7 @@ func (r *claimRepository) GetActiveByFoodID(
 	return &claim, nil
 }
 
+// GetByFoodID retrieves all claims for a specific food listing
 func (r *claimRepository) GetByFoodID(
 	ctx context.Context,
 	foodListingID string,
@@ -211,6 +210,7 @@ func (r *claimRepository) GetByFoodID(
 	return claims, nil
 }
 
+// GetByNGOUserID retrieves all claims made by a specific NGO user
 func (r *claimRepository) GetByNGOUserID(
 	ctx context.Context,
 	ngoUserID string,
@@ -237,6 +237,7 @@ func (r *claimRepository) GetByNGOUserID(
 	return claims, nil
 }
 
+// GetByDonorUserID retrieves all claims for a specific donor user
 func (r *claimRepository) GetByDonorUserID(
 	ctx context.Context,
 	donorUserID string,
@@ -263,10 +264,7 @@ func (r *claimRepository) GetByDonorUserID(
 	return claims, nil
 }
 
-/*
-Updates
-*/
-
+// UpdateStatus updates the status of a claim with timestamp tracking
 func (r *claimRepository) UpdateStatus(
 	ctx context.Context,
 	tx *sqlx.Tx,

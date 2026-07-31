@@ -30,8 +30,7 @@ func Load() {
 	}
 }
 
-/* ===================== HELPERS ===================== */
-
+// getEnv retrieves an environment variable with a default value
 func getEnv(key, defaultValue string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -39,6 +38,7 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// mustEnv retrieves a required environment variable or exits with an error
 func mustEnv(key string) string {
 	v := os.Getenv(key)
 	if v == "" {

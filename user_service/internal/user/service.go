@@ -7,17 +7,17 @@ import (
 	"time"
 )
 
+// Service handles business logic for user operations
 type Service struct {
 	repo Repository
 }
 
+// NewService creates a new user service instance
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-/* ===================== INTERNAL ===================== */
-
-// GetDonorProfileByUserIDInternal is used by other services
+// GetDonorProfileByUserIDInternal retrieves a donor profile by user ID for internal use
 func (s *Service) GetDonorProfileByUserIDInternal(
 	ctx context.Context,
 	userID string,
@@ -30,7 +30,7 @@ func (s *Service) GetDonorProfileByUserIDInternal(
 	return s.repo.GetDonorProfileByUserID(ctx, userID)
 }
 
-// GetNGOProfileByUserIDInternal is used by other services
+// GetNGOProfileByUserIDInternal retrieves an NGO profile by user ID for internal use
 func (s *Service) GetNGOProfileByUserIDInternal(
 	ctx context.Context,
 	userID string,
@@ -43,8 +43,7 @@ func (s *Service) GetNGOProfileByUserIDInternal(
 	return s.repo.GetNGOProfileByUserID(ctx, userID)
 }
 
-/* ===================== DONOR PROFILE ===================== */
-
+// CreateDonorProfile creates a new donor profile for a user
 func (s *Service) CreateDonorProfile(
 	ctx context.Context,
 	userID string,
@@ -66,7 +65,6 @@ func (s *Service) CreateDonorProfile(
 		return nil, errors.New("name is required")
 	}
 
-	// Prevent duplicate donor profile
 	existing, err := s.repo.GetDonorProfileByUserID(ctx, userID)
 	if err == nil && existing != nil {
 		return nil, ErrDonorProfileExists
@@ -86,6 +84,7 @@ func (s *Service) CreateDonorProfile(
 	return donor, nil
 }
 
+// GetMyDonorProfile retrieves the donor profile of the authenticated user
 func (s *Service) GetMyDonorProfile(
 	ctx context.Context,
 	userID string,
@@ -98,6 +97,7 @@ func (s *Service) GetMyDonorProfile(
 	return s.repo.GetDonorProfileByUserID(ctx, userID)
 }
 
+// UpdateMyDonorProfile updates the donor profile of the authenticated user
 func (s *Service) UpdateMyDonorProfile(
 	ctx context.Context,
 	userID string,
@@ -126,8 +126,7 @@ func (s *Service) UpdateMyDonorProfile(
 	return s.repo.UpdateDonorProfile(ctx, profile)
 }
 
-/* ===================== NGO PROFILE ===================== */
-
+// CreateNGOProfile creates a new NGO profile for a user
 func (s *Service) CreateNGOProfile(
 	ctx context.Context,
 	userID string,
@@ -149,7 +148,6 @@ func (s *Service) CreateNGOProfile(
 		return nil, ErrInvalidNGODetails
 	}
 
-	// Prevent duplicate NGO profile
 	existing, err := s.repo.GetNGOProfileByUserID(ctx, userID)
 	if err == nil && existing != nil {
 		return nil, ErrNGOProfileExists
@@ -169,6 +167,7 @@ func (s *Service) CreateNGOProfile(
 	return ngo, nil
 }
 
+// GetMyNGOProfile retrieves the NGO profile of the authenticated user
 func (s *Service) GetMyNGOProfile(
 	ctx context.Context,
 	userID string,
@@ -181,8 +180,7 @@ func (s *Service) GetMyNGOProfile(
 	return s.repo.GetNGOProfileByUserID(ctx, userID)
 }
 
-/* ===================== ADMIN ===================== */
-
+// VerifyNGO verifies an NGO profile (admin only)
 func (s *Service) VerifyNGO(
 	ctx context.Context,
 	adminUserID string,

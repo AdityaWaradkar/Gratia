@@ -16,40 +16,33 @@ import (
 )
 
 func main() {
-
-	/* ===================== CONFIG ===================== */
-
+	// Load configuration from environment variables
 	config.Load()
 
-	/* ===================== LOGGER ===================== */
-
+	// Initialize logger
 	logger.Init()
 
-	/* ===================== DATABASE ===================== */
-
+	// Connect to the database
 	database := db.Connect(config.AppConfig.DatabaseURL)
 	defer database.Close()
 
-	/* ===================== DEPENDENCY WIRING ===================== */
-
+	// Initialize repository, service, and handler
 	repo := user.NewRepository(database)
 	service := user.NewService(repo)
 	handler := user.NewHandler(service)
 
+	// Register HTTP routes
 	router := server.RegisterRoutes(handler)
 
-	/* ===================== HTTP SERVER ===================== */
-
+	// Configure the HTTP server
 	srv := &http.Server{
 		Addr:              ":" + config.AppConfig.Port,
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	/* ===================== START SERVER ===================== */
-
+	// Start the HTTP server in a goroutine
 	go func() {
-
 		logger.Logger.Println(
 			"user service running on port",
 			config.AppConfig.Port,
@@ -57,25 +50,22 @@ func main() {
 
 		if err := srv.ListenAndServe(); err != nil &&
 			err != http.ErrServerClosed {
-
 			logger.Logger.Fatalf("server failed: %v", err)
 		}
 	}()
 
-	/* ===================== GRACEFUL SHUTDOWN ===================== */
-
+	// Wait for interrupt signal for graceful shutdown
 	stop := make(chan os.Signal, 1)
-
 	signal.Notify(
 		stop,
 		os.Interrupt,
 		syscall.SIGTERM,
 	)
-
 	<-stop
 
 	logger.Logger.Println("shutting down user service...")
 
+	// Gracefully shutdown the server with timeout
 	ctx, cancel := context.WithTimeout(
 		context.Background(),
 		10*time.Second,

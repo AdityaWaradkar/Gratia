@@ -12,20 +12,20 @@ import (
 )
 
 func main() {
-	// Load configuration
+	// Load configuration from environment variables
 	config.Load()
 
-	// Initialize logger
+	// Initialize logger with service name
 	log := logger.New("AUTH")
 
-	// Connect to database
+	// Connect to the database
 	dbPool := db.Connect(context.Background(), config.AppConfig.DatabaseURL)
 	defer dbPool.Close()
 
-	// Initialize repository
+	// Initialize repository for database operations
 	repo := auth.NewRepository(dbPool)
 
-	// Initialize service
+	// Initialize service with business logic
 	service := auth.NewService(
 		repo,
 		config.AppConfig.JWTSecret,
@@ -33,13 +33,13 @@ func main() {
 		config.AppConfig.RefreshTokenTTL,
 	)
 
-	// Initialize handler
+	// Initialize handler for HTTP requests
 	handler := auth.NewHandler(service)
 
-	// Register HTTP routes
+	// Register HTTP routes with the router
 	router := server.RegisterRoutes(handler)
 
-	// Start HTTP server
+	// Start the HTTP server
 	log.Printf("auth service running on port %s", config.AppConfig.Port)
 	if err := http.ListenAndServe(":"+config.AppConfig.Port, router); err != nil {
 		log.Fatalf("server failed: %v", err)

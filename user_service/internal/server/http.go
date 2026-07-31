@@ -7,13 +7,12 @@ import (
 	"github.com/adityawaradkar/gratia/user_service/internal/user"
 )
 
-// RegisterRoutes wires all HTTP routes
+// RegisterRoutes wires all HTTP routes for the user service
 func RegisterRoutes(handler *user.Handler) http.Handler {
 
 	mux := http.NewServeMux()
 
-	/* ===================== INTERNAL (SERVICE-TO-SERVICE) ===================== */
-
+	// Internal service-to-service endpoints
 	mux.HandleFunc(
 		"GET /internal/users/{id}/donor",
 		handler.GetDonorProfileInternal,
@@ -24,8 +23,7 @@ func RegisterRoutes(handler *user.Handler) http.Handler {
 		handler.GetNGOProfileInternal,
 	)
 
-	/* ===================== DONOR PROFILE ===================== */
-
+	// Donor profile endpoints with authentication
 	mux.Handle(
 		"POST /donors/profile",
 		middleware.Auth(
@@ -47,8 +45,7 @@ func RegisterRoutes(handler *user.Handler) http.Handler {
 		),
 	)
 
-	/* ===================== NGO PROFILE ===================== */
-
+	// NGO profile endpoints with authentication
 	mux.Handle(
 		"POST /ngos/profile",
 		middleware.Auth(
@@ -63,8 +60,7 @@ func RegisterRoutes(handler *user.Handler) http.Handler {
 		),
 	)
 
-	/* ===================== ADMIN ===================== */
-
+	// Admin endpoints with role-based authorization
 	mux.Handle(
 		"PUT /admin/ngos/verify",
 		middleware.Auth(
@@ -74,8 +70,7 @@ func RegisterRoutes(handler *user.Handler) http.Handler {
 		),
 	)
 
-	/* ===================== HEALTH ===================== */
-
+	// Health check endpoint
 	mux.HandleFunc(
 		"GET /health",
 		func(w http.ResponseWriter, _ *http.Request) {

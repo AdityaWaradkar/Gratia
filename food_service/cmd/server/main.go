@@ -14,35 +14,35 @@ import (
 )
 
 func main() {
-	// Load configuration
+	// Load configuration from environment variables
 	config.Load()
 
 	// Initialize logger
 	logger.Init()
 
-	// Connect to database
+	// Connect to the database
 	pool := db.Connect(config.AppConfig.DatabaseURL)
 	defer pool.Close()
 
-	// Initialize repository
+	// Initialize repository for food database operations
 	repo := food.NewRepository(pool)
 
 	// Initialize user service client
 	userClient := food.NewUserClient(config.AppConfig.UserServiceURL)
 
-	// Initialize service
+	// Initialize service with business logic
 	service := food.NewService(repo, userClient)
 
-	// Start expiry worker
+	// Start background worker for expiring listings
 	go startExpiryWorker(service)
 
-	// Initialize handler
+	// Initialize handler for HTTP requests
 	handler := food.NewHandler(service)
 
-	// Register routes
+	// Register HTTP routes with the router
 	router := server.RegisterRoutes(handler)
 
-	// Start HTTP server
+	// Start the HTTP server
 	log.Printf("food_service running on port %s", config.AppConfig.Port)
 
 	if err := http.ListenAndServe(
@@ -53,6 +53,7 @@ func main() {
 	}
 }
 
+// startExpiryWorker runs a background worker to expire food listings periodically
 func startExpiryWorker(service *food.Service) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()

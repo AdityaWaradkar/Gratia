@@ -18,18 +18,11 @@ import (
 )
 
 func main() {
-
-	/*
-		Load Configuration
-	*/
-
+	// Load configuration from environment variables
 	config.Load()
 	cfg := config.AppConfig
 
-	/*
-		Logger
-	*/
-
+	// Initialize logger with configured log level
 	logr := logger.New(logger.Config{
 		Level: cfg.LogLevel,
 	})
@@ -40,10 +33,7 @@ func main() {
 		"port", cfg.Port,
 	)
 
-	/*
-		Database
-	*/
-
+	// Connect to the database
 	dbConn, err := db.New()
 	if err != nil {
 		logr.Error(
@@ -52,31 +42,20 @@ func main() {
 		)
 		os.Exit(1)
 	}
-
 	defer dbConn.Close()
 
-	/*
-		Repository
-	*/
-
+	// Initialize repository for claim database operations
 	repo := claim.NewClaimRepository(dbConn)
 
-	/*
-		External Clients
-	*/
-
+	// Initialize external service clients
 	userClient := client.NewUserClient(
 		cfg.UserServiceURL,
 	)
-
 	foodClient := client.NewFoodClient(
 		cfg.FoodServiceURL,
 	)
 
-	/*
-		Service Layer
-	*/
-
+	// Initialize service layer with business logic
 	claimService := claim.NewService(
 		dbConn,
 		repo,
@@ -84,35 +63,23 @@ func main() {
 		foodClient,
 	)
 
-	/*
-		Handlers
-	*/
-
+	// Initialize handler for HTTP requests
 	claimHandler := claim.NewHandler(
 		claimService,
 	)
 
-	/*
-		Middleware
-	*/
-
+	// Initialize authentication middleware
 	authMiddleware := authmw.NewMiddleware(
 		cfg.JWTSecret,
 	)
 
-	/*
-		Router
-	*/
-
+	// Initialize router with all routes and middleware
 	srv := server.NewServer(
 		claimHandler,
 		authMiddleware,
 	)
 
-	/*
-		HTTP Server
-	*/
-
+	// Configure the HTTP server
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           srv.Handler(),
@@ -122,12 +89,8 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	/*
-		Start Server
-	*/
-
+	// Start the HTTP server in a goroutine
 	go func() {
-
 		logr.Info(
 			"http server started",
 			"port", cfg.Port,
@@ -135,32 +98,26 @@ func main() {
 
 		if err := httpServer.ListenAndServe(); err != nil &&
 			err != http.ErrServerClosed {
-
 			logr.Error(
 				"http server failed",
 				"error", err,
 			)
-
 			os.Exit(1)
 		}
 	}()
 
-	/*
-		Graceful Shutdown
-	*/
-
+	// Wait for interrupt signal for graceful shutdown
 	quit := make(chan os.Signal, 1)
-
 	signal.Notify(
 		quit,
 		syscall.SIGINT,
 		syscall.SIGTERM,
 	)
-
 	<-quit
 
 	logr.Info("shutdown signal received")
 
+	// Gracefully shutdown the server with timeout
 	ctx, cancel := context.WithTimeout(
 		context.Background(),
 		10*time.Second,

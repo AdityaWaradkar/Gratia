@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repository defines DB operations for food_service
+// Repository defines database operations for food service
 type Repository interface {
 	CreateFoodListing(ctx context.Context, listing *FoodListing) error
 
@@ -27,15 +27,14 @@ type repository struct {
 	db *pgxpool.Pool
 }
 
-// NewRepository creates a new food repository
+// NewRepository creates a new food repository instance
 func NewRepository(db *pgxpool.Pool) Repository {
 	return &repository{
 		db: db,
 	}
 }
 
-/* ===================== CREATE ===================== */
-
+// CreateFoodListing inserts a new food listing into the database
 func (r *repository) CreateFoodListing(ctx context.Context, listing *FoodListing) error {
 	query := `
 		INSERT INTO food_listings (
@@ -72,8 +71,7 @@ func (r *repository) CreateFoodListing(ctx context.Context, listing *FoodListing
 	)
 }
 
-/* ===================== READ ===================== */
-
+// GetFoodListingByID retrieves a food listing by its unique identifier
 func (r *repository) GetFoodListingByID(
 	ctx context.Context,
 	id string,
@@ -121,6 +119,7 @@ func (r *repository) GetFoodListingByID(
 	return listing, nil
 }
 
+// ListFoodListings retrieves all food listings with a specific status
 func (r *repository) ListFoodListings(
 	ctx context.Context,
 	status string,
@@ -179,8 +178,7 @@ func (r *repository) ListFoodListings(
 	return listings, nil
 }
 
-/* ===================== UPDATE ===================== */
-
+// UpdateFoodListing updates an existing food listing
 func (r *repository) UpdateFoodListing(
 	ctx context.Context,
 	listing *FoodListing,
@@ -225,6 +223,7 @@ func (r *repository) UpdateFoodListing(
 	return nil
 }
 
+// UpdateFoodStatus updates the status of a food listing
 func (r *repository) UpdateFoodStatus(
 	ctx context.Context,
 	id string,
@@ -256,8 +255,7 @@ func (r *repository) UpdateFoodStatus(
 	return nil
 }
 
-/* ===================== EXPIRY ===================== */
-
+// ExpireFoodListings updates expired food listings to expired status
 func (r *repository) ExpireFoodListings(
 	ctx context.Context,
 ) error {

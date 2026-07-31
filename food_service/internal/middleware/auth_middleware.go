@@ -14,7 +14,7 @@ type errorResponse struct {
 	Message string `json:"message"`
 }
 
-// Auth validates JWT and injects user context
+// Auth validates JWT and injects user context into the request
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -45,7 +45,6 @@ func Auth(next http.Handler) http.Handler {
 			tokenStr,
 			func(t *jwt.Token) (interface{}, error) {
 
-				// Ensure expected signing algorithm
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, jwt.ErrSignatureInvalid
 				}
@@ -104,6 +103,7 @@ func Auth(next http.Handler) http.Handler {
 	})
 }
 
+// writeError writes a JSON error response
 func writeError(
 	w http.ResponseWriter,
 	status int,

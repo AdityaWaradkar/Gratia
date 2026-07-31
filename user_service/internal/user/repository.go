@@ -9,14 +9,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repository defines DB operations for user_service
+// Repository defines database operations for user service
 type Repository interface {
-	// Donor profile
+	// Donor profile operations
 	CreateDonorProfile(ctx context.Context, donor *DonorProfile) error
 	GetDonorProfileByUserID(ctx context.Context, userID string) (*DonorProfile, error)
 	UpdateDonorProfile(ctx context.Context, donor *DonorProfile) error
 
-	// NGO profile
+	// NGO profile operations
 	CreateNGOProfile(ctx context.Context, ngo *NGOProfile) error
 	GetNGOProfileByUserID(ctx context.Context, userID string) (*NGOProfile, error)
 	UpdateNGOVerification(
@@ -31,14 +31,12 @@ type repository struct {
 	db *pgxpool.Pool
 }
 
-// NewRepository creates a new repository
+// NewRepository creates a new user repository instance
 func NewRepository(db *pgxpool.Pool) Repository {
 	return &repository{db: db}
 }
 
-/* ===================== DONOR PROFILE ===================== */
-
-// CreateDonorProfile inserts donor profile
+// CreateDonorProfile inserts a new donor profile into the database
 func (r *repository) CreateDonorProfile(
 	ctx context.Context,
 	donor *DonorProfile,
@@ -83,7 +81,7 @@ func (r *repository) CreateDonorProfile(
 	return nil
 }
 
-// GetDonorProfileByUserID fetches donor profile
+// GetDonorProfileByUserID retrieves a donor profile by user ID
 func (r *repository) GetDonorProfileByUserID(
 	ctx context.Context,
 	userID string,
@@ -124,7 +122,7 @@ func (r *repository) GetDonorProfileByUserID(
 	return d, nil
 }
 
-// UpdateDonorProfile updates donor profile
+// UpdateDonorProfile updates an existing donor profile
 func (r *repository) UpdateDonorProfile(
 	ctx context.Context,
 	donor *DonorProfile,
@@ -162,9 +160,7 @@ func (r *repository) UpdateDonorProfile(
 	return nil
 }
 
-/* ===================== NGO PROFILE ===================== */
-
-// CreateNGOProfile inserts NGO profile
+// CreateNGOProfile inserts a new NGO profile into the database
 func (r *repository) CreateNGOProfile(
 	ctx context.Context,
 	ngo *NGOProfile,
@@ -211,7 +207,7 @@ func (r *repository) CreateNGOProfile(
 	return nil
 }
 
-// GetNGOProfileByUserID fetches NGO profile
+// GetNGOProfileByUserID retrieves an NGO profile by user ID
 func (r *repository) GetNGOProfileByUserID(
 	ctx context.Context,
 	userID string,
@@ -256,7 +252,7 @@ func (r *repository) GetNGOProfileByUserID(
 	return n, nil
 }
 
-// UpdateNGOVerification verifies NGO
+// UpdateNGOVerification updates the verification status of an NGO profile
 func (r *repository) UpdateNGOVerification(
 	ctx context.Context,
 	userID string,

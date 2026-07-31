@@ -14,11 +14,13 @@ var (
 	ErrInvalidUserResponse = errors.New("invalid response from user service")
 )
 
+// UserClient handles communication with the user service
 type UserClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
+// NewUserClient creates a new user service client instance
 func NewUserClient(baseURL string) *UserClient {
 	return &UserClient{
 		baseURL: baseURL,
@@ -28,24 +30,12 @@ func NewUserClient(baseURL string) *UserClient {
 	}
 }
 
-/*
-Response DTO
-*/
-
+// NGOStatusResponse represents the response from user service for NGO verification status
 type NGOStatusResponse struct {
 	Verified bool `json:"verified"`
 }
 
-/*
-IsNGOVerified
-
-Expected response from user_service:
-
-{
-    "verified": true
-}
-*/
-
+// IsNGOVerified checks if a user is a verified NGO
 func (c *UserClient) IsNGOVerified(
 	ctx context.Context,
 	userID string,
@@ -76,7 +66,7 @@ func (c *UserClient) IsNGOVerified(
 	switch resp.StatusCode {
 
 	case http.StatusOK:
-		// continue
+		// Continue processing
 
 	case http.StatusNotFound:
 		return false, ErrUserNotFound
@@ -94,9 +84,6 @@ func (c *UserClient) IsNGOVerified(
 		return false, err
 	}
 
-	// Defensive validation.
-	// Currently the response only contains one field,
-	// but this gives us a single place to extend later.
 	if resp.ContentLength == 0 {
 		return false, ErrInvalidUserResponse
 	}

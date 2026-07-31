@@ -5,36 +5,29 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"github.com/gorilla/mux"
+
 	"github.com/adityawaradkar/gratia/claim_service/internal/middleware"
+	"github.com/gorilla/mux"
 )
 
-/*
-Handler
-*/
-
+// Handler handles HTTP requests for claim operations
 type Handler struct {
 	service *Service
 }
 
+// NewHandler creates a new claim handler instance
 func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service: service,
 	}
 }
 
-/*
-Request DTOs
-*/
-
+// Request DTOs for claim endpoints
 type createClaimRequest struct {
 	FoodListingID string `json:"foodListingId"`
 }
 
-/*
-Create Claim
-*/
-
+// CreateClaim handles the creation of a new claim
 func (h *Handler) CreateClaim(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -70,10 +63,7 @@ func (h *Handler) CreateClaim(
 	writeJSON(w, http.StatusCreated, claim)
 }
 
-/*
-Donor Actions
-*/
-
+// ApproveClaim approves a claim by the donor
 func (h *Handler) ApproveClaim(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -89,6 +79,7 @@ func (h *Handler) ApproveClaim(
 	)
 }
 
+// RejectClaim rejects a claim by the donor
 func (h *Handler) RejectClaim(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -104,10 +95,7 @@ func (h *Handler) RejectClaim(
 	)
 }
 
-/*
-NGO Actions
-*/
-
+// CancelClaim cancels a claim by the NGO
 func (h *Handler) CancelClaim(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -123,6 +111,7 @@ func (h *Handler) CancelClaim(
 	)
 }
 
+// MarkPickedUp marks a claim as picked up by the NGO
 func (h *Handler) MarkPickedUp(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -138,6 +127,7 @@ func (h *Handler) MarkPickedUp(
 	)
 }
 
+// MarkDelivered marks a claim as delivered by the NGO
 func (h *Handler) MarkDelivered(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -153,10 +143,7 @@ func (h *Handler) MarkDelivered(
 	)
 }
 
-/*
-Shared Action Helpers
-*/
-
+// Shared action helpers for handling donor and NGO operations
 func (h *Handler) handleDonorAction(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -209,10 +196,7 @@ func (h *Handler) handleNGOAction(
 	w.WriteHeader(http.StatusNoContent)
 }
 
-/*
-Role Helper
-*/
-
+// requireRole checks if the user has the required role for the operation
 func requireRole(
 	w http.ResponseWriter,
 	ctx context.Context,
@@ -231,10 +215,7 @@ func requireRole(
 	return true
 }
 
-/*
-Error Mapping
-*/
-
+// handleServiceError maps service errors to appropriate HTTP status codes
 func handleServiceError(
 	w http.ResponseWriter,
 	err error,
@@ -271,10 +252,7 @@ func handleServiceError(
 	}
 }
 
-/*
-Response Helpers
-*/
-
+// Response helpers for JSON responses
 func writeJSON(
 	w http.ResponseWriter,
 	status int,
@@ -296,10 +274,7 @@ func writeError(
 	})
 }
 
-/*
-Context Helpers
-*/
-
+// Context helpers for extracting user information
 func userIDFromContext(ctx context.Context) string {
 	if v := ctx.Value(middleware.UserIDKey); v != nil {
 		if id, ok := v.(string); ok {
@@ -319,4 +294,3 @@ func roleFromContext(ctx context.Context) string {
 
 	return ""
 }
-

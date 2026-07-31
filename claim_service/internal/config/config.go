@@ -7,10 +7,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-/*
-Config
-*/
-
+// Config holds all application configuration
 type Config struct {
 	Env string
 
@@ -26,18 +23,10 @@ type Config struct {
 	LogLevel string
 }
 
-/*
-Global Config
-*/
-
+// AppConfig is the global configuration instance
 var AppConfig *Config
 
-/*
-Load
-
-Loads application configuration from environment variables.
-*/
-
+// Load loads application configuration from environment variables
 func Load() {
 	_ = godotenv.Load()
 
@@ -75,10 +64,7 @@ func Load() {
 	}
 }
 
-/*
-Helpers
-*/
-
+// getEnv retrieves an environment variable with a default value
 func getEnv(
 	key string,
 	defaultValue string,
@@ -91,6 +77,7 @@ func getEnv(
 	return defaultValue
 }
 
+// mustEnv retrieves a required environment variable or exits with an error
 func mustEnv(key string) string {
 	value := os.Getenv(key)
 

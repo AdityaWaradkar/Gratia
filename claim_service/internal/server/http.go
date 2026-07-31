@@ -9,14 +9,12 @@ import (
 	authmw "github.com/adityawaradkar/gratia/claim_service/internal/middleware"
 )
 
-/*
-Server
-*/
-
+// Server holds the HTTP router configuration
 type Server struct {
 	router *mux.Router
 }
 
+// NewServer creates a new server with all routes configured
 func NewServer(
 	claimHandler *claim.Handler,
 	authMiddleware *authmw.Middleware,
@@ -24,34 +22,22 @@ func NewServer(
 
 	r := mux.NewRouter()
 
-	/*
-		Health Check
-	*/
-
+	// Health check endpoint
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodGet)
 
-	/*
-		Protected Routes
-	*/
-
+	// Protected routes requiring authentication
 	claimsRouter := r.PathPrefix("/claims").Subrouter()
 	claimsRouter.Use(authMiddleware.RequireAuth)
 
-	/*
-		Claim Creation
-	*/
-
+	// Claim creation endpoint
 	claimsRouter.HandleFunc(
 		"",
 		claimHandler.CreateClaim,
 	).Methods(http.MethodPost)
 
-	/*
-		Claim Actions
-	*/
-
+	// Claim action endpoints
 	claimsRouter.HandleFunc(
 		"/{id}/approve",
 		claimHandler.ApproveClaim,
@@ -82,6 +68,7 @@ func NewServer(
 	}
 }
 
+// Handler returns the HTTP handler for the server
 func (s *Server) Handler() http.Handler {
 	return s.router
 }

@@ -14,11 +14,13 @@ var (
 	ErrInvalidFoodResponse = errors.New("invalid response from food service")
 )
 
+// FoodClient handles communication with the food service
 type FoodClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
+// NewFoodClient creates a new food service client instance
 func NewFoodClient(baseURL string) *FoodClient {
 	return &FoodClient{
 		baseURL: baseURL,
@@ -28,26 +30,13 @@ func NewFoodClient(baseURL string) *FoodClient {
 	}
 }
 
-/*
-Response DTO
-*/
-
+// FoodForClaimResponse represents the response from food service for claim info
 type FoodForClaimResponse struct {
 	DonorUserID string `json:"donorUserId"`
 	Status      string `json:"status"`
 }
 
-/*
-GetFoodForClaim
-
-Expected response from food_service:
-
-{
-    "donorUserId": "...",
-    "status": "OPEN"
-}
-*/
-
+// GetFoodForClaim retrieves food listing information for claim creation
 func (c *FoodClient) GetFoodForClaim(
 	ctx context.Context,
 	foodListingID string,
@@ -82,7 +71,7 @@ func (c *FoodClient) GetFoodForClaim(
 	switch resp.StatusCode {
 
 	case http.StatusOK:
-		// continue
+		// Continue processing
 
 	case http.StatusNotFound:
 		return "", "", ErrFoodNotFound

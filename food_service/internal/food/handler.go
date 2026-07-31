@@ -8,20 +8,19 @@ import (
 	"github.com/adityawaradkar/gratia/food_service/internal/middleware"
 )
 
-/* ===================== HANDLER ===================== */
-
+// Handler handles HTTP requests for food operations
 type Handler struct {
 	service *Service
 }
 
+// NewHandler creates a new food handler instance
 func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service: service,
 	}
 }
 
-/* ===================== REQUEST MODELS ===================== */
-
+// Request models for food endpoints
 type CreateFoodListingRequest struct {
 	Title       string    `json:"title"`
 	Description *string   `json:"description,omitempty"`
@@ -48,8 +47,7 @@ type ClaimValidationResponse struct {
 	Reason    string `json:"reason,omitempty"`
 }
 
-/* ===================== HELPERS ===================== */
-
+// Helper functions for HTTP responses
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -67,9 +65,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	)
 }
 
-/* ===================== CREATE ===================== */
-
-// POST /foods
+// CreateFoodListing handles the creation of a new food listing
 func (h *Handler) CreateFoodListing(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -107,9 +103,7 @@ func (h *Handler) CreateFoodListing(
 	writeJSON(w, http.StatusCreated, listing)
 }
 
-/* ===================== READ ===================== */
-
-// GET /foods/{id}
+// GetFoodListing retrieves a specific food listing by ID
 func (h *Handler) GetFoodListing(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -133,7 +127,7 @@ func (h *Handler) GetFoodListing(
 	writeJSON(w, http.StatusOK, listing)
 }
 
-// GET /foods
+// ListAvailableFoodListings retrieves all available food listings
 func (h *Handler) ListAvailableFoodListings(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -154,9 +148,7 @@ func (h *Handler) ListAvailableFoodListings(
 	writeJSON(w, http.StatusOK, listings)
 }
 
-/* ===================== UPDATE ===================== */
-
-// PUT /foods/{id}
+// UpdateFoodListing updates an existing food listing
 func (h *Handler) UpdateFoodListing(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -204,9 +196,7 @@ func (h *Handler) UpdateFoodListing(
 	w.WriteHeader(http.StatusNoContent)
 }
 
-/* ===================== CANCEL ===================== */
-
-// DELETE /foods/{id}
+// CancelFoodListing cancels a food listing
 func (h *Handler) CancelFoodListing(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -236,9 +226,7 @@ func (h *Handler) CancelFoodListing(
 	w.WriteHeader(http.StatusNoContent)
 }
 
-/* ===================== INTERNAL ===================== */
-
-// GET /internal/foods/{id}/validate
+// ValidateFoodClaim validates if a food listing can be claimed
 func (h *Handler) ValidateFoodClaim(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -270,7 +258,7 @@ func (h *Handler) ValidateFoodClaim(
 	)
 }
 
-// PATCH /internal/foods/{id}/claim
+// MarkFoodClaimed marks a food listing as claimed
 func (h *Handler) MarkFoodClaimed(
 	w http.ResponseWriter,
 	r *http.Request,

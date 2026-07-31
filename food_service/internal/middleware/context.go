@@ -2,6 +2,7 @@ package middleware
 
 import "context"
 
+// contextKey is the type for context keys to avoid collisions
 type contextKey string
 
 const (
@@ -9,13 +10,13 @@ const (
 	UserRoleKey contextKey = "user_role"
 )
 
-// UserID returns authenticated user id from context
+// UserID returns the authenticated user ID from context
 func UserID(ctx context.Context) string {
 	v, _ := ctx.Value(UserIDKey).(string)
 	return v
 }
 
-// UserRole returns authenticated user role from context
+// UserRole returns the authenticated user role from context
 func UserRole(ctx context.Context) string {
 	v, _ := ctx.Value(UserRoleKey).(string)
 	return v

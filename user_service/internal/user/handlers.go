@@ -8,18 +8,17 @@ import (
 	"github.com/adityawaradkar/gratia/user_service/internal/middleware"
 )
 
-// Handler handles HTTP requests
+// Handler handles HTTP requests for user operations
 type Handler struct {
 	service *Service
 }
 
-// NewHandler creates a new handler
+// NewHandler creates a new user handler instance
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-/* ===================== REQUEST MODELS ===================== */
-
+// Request models for user endpoints
 type CreateDonorProfileRequest struct {
 	Name    string  `json:"name"`
 	Phone   *string `json:"phone,omitempty"`
@@ -37,8 +36,7 @@ type CreateNGOProfileRequest struct {
 	RegistrationNo string `json:"registrationNo"`
 }
 
-/* ===================== HELPERS ===================== */
-
+// Helper functions for HTTP responses
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -88,9 +86,7 @@ func handleServiceError(w http.ResponseWriter, err error) {
 	}
 }
 
-/* ===================== INTERNAL ===================== */
-
-// GetDonorProfileInternal returns donor profile by user ID
+// GetDonorProfileInternal returns donor profile by user ID for internal use
 func (h *Handler) GetDonorProfileInternal(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -110,7 +106,7 @@ func (h *Handler) GetDonorProfileInternal(
 	writeJSON(w, http.StatusOK, profile)
 }
 
-// GetNGOProfileInternal returns NGO profile by user ID
+// GetNGOProfileInternal returns NGO profile by user ID for internal use
 func (h *Handler) GetNGOProfileInternal(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -130,9 +126,7 @@ func (h *Handler) GetNGOProfileInternal(
 	writeJSON(w, http.StatusOK, profile)
 }
 
-/* ===================== DONOR PROFILE ===================== */
-
-// CreateDonorProfile creates donor profile
+// CreateDonorProfile creates a donor profile for the authenticated user
 func (h *Handler) CreateDonorProfile(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -164,7 +158,7 @@ func (h *Handler) CreateDonorProfile(
 	writeJSON(w, http.StatusCreated, profile)
 }
 
-// GetMyDonorProfile returns donor profile of authenticated user
+// GetMyDonorProfile returns the donor profile of the authenticated user
 func (h *Handler) GetMyDonorProfile(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -184,7 +178,7 @@ func (h *Handler) GetMyDonorProfile(
 	writeJSON(w, http.StatusOK, profile)
 }
 
-// UpdateMyDonorProfile updates donor profile
+// UpdateMyDonorProfile updates the donor profile of the authenticated user
 func (h *Handler) UpdateMyDonorProfile(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -214,9 +208,7 @@ func (h *Handler) UpdateMyDonorProfile(
 	w.WriteHeader(http.StatusNoContent)
 }
 
-/* ===================== NGO PROFILE ===================== */
-
-// CreateNGOProfile creates NGO profile
+// CreateNGOProfile creates an NGO profile for the authenticated user
 func (h *Handler) CreateNGOProfile(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -247,7 +239,7 @@ func (h *Handler) CreateNGOProfile(
 	writeJSON(w, http.StatusCreated, ngo)
 }
 
-// GetMyNGOProfile returns NGO profile of authenticated user
+// GetMyNGOProfile returns the NGO profile of the authenticated user
 func (h *Handler) GetMyNGOProfile(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -267,9 +259,7 @@ func (h *Handler) GetMyNGOProfile(
 	writeJSON(w, http.StatusOK, ngo)
 }
 
-/* ===================== ADMIN ===================== */
-
-// VerifyNGO verifies NGO profile (admin only)
+// VerifyNGO verifies an NGO profile (admin only)
 func (h *Handler) VerifyNGO(
 	w http.ResponseWriter,
 	r *http.Request,

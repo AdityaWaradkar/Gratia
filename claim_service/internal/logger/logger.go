@@ -6,10 +6,12 @@ import (
 	"strings"
 )
 
+// Config holds the logger configuration
 type Config struct {
 	Level string
 }
 
+// New creates a new structured JSON logger instance
 func New(cfg Config) *slog.Logger {
 
 	handler := slog.NewJSONHandler(
@@ -21,12 +23,12 @@ func New(cfg Config) *slog.Logger {
 
 	logger := slog.New(handler)
 
-	// Set global logger.
 	slog.SetDefault(logger)
 
 	return logger
 }
 
+// parseLevel converts a string log level to slog.Level
 func parseLevel(level string) slog.Level {
 
 	switch strings.ToLower(level) {

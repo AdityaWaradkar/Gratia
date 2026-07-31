@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Service contains business logic for auth
+// Service contains business logic for authentication operations
 type Service struct {
 	repo       Repository
 	jwtSecret  []byte
@@ -20,26 +20,26 @@ type Service struct {
 	refreshTTL time.Duration
 }
 
-// RegisterInput represents registration input
+// RegisterInput represents the data required for user registration
 type RegisterInput struct {
 	Email    string
 	Password string
 	Role     string
 }
 
-// LoginInput represents login input
+// LoginInput represents the data required for user login
 type LoginInput struct {
 	Email    string
 	Password string
 }
 
-// TokenPair represents JWT tokens
+// TokenPair represents the access and refresh JWT tokens
 type TokenPair struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
 
-// NewService creates auth service
+// NewService creates a new auth service instance
 func NewService(
 	repo Repository,
 	jwtSecret string,
@@ -54,9 +54,7 @@ func NewService(
 	}
 }
 
-/* ===================== AUTH ===================== */
-
-// RegisterUser creates a new authenticated account
+// RegisterUser creates a new authenticated user account
 func (s *Service) RegisterUser(
 	ctx context.Context,
 	input RegisterInput,
@@ -107,7 +105,7 @@ func (s *Service) RegisterUser(
 	return user, nil
 }
 
-// LoginUser authenticates user and issues tokens
+// LoginUser authenticates a user and issues access and refresh tokens
 func (s *Service) LoginUser(
 	ctx context.Context,
 	input LoginInput,
@@ -146,7 +144,7 @@ func (s *Service) LoginUser(
 
 	rt := &RefreshToken{
 		UserID:    user.ID,
-		Token: refreshToken,
+		Token:     refreshToken,
 		ExpiresAt: now.Add(s.refreshTTL),
 		Revoked:   false,
 		CreatedAt: now,
@@ -173,7 +171,7 @@ func (s *Service) LoginUser(
 	}, nil
 }
 
-// RefreshTokens rotates refresh token and issues new access token
+// RefreshTokens rotates the refresh token and issues a new access token
 func (s *Service) RefreshTokens(
 	ctx context.Context,
 	refreshToken string,
@@ -205,7 +203,7 @@ func (s *Service) RefreshTokens(
 
 	newRT := &RefreshToken{
 		UserID:    user.ID,
-		Token: newRefreshToken,
+		Token:     newRefreshToken,
 		ExpiresAt: now.Add(s.refreshTTL),
 		Revoked:   false,
 		CreatedAt: now,
@@ -232,7 +230,7 @@ func (s *Service) RefreshTokens(
 	}, nil
 }
 
-// Logout revokes refresh token
+// Logout revokes the refresh token and ends the user session
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 	rt, err := s.repo.GetRefreshToken(ctx, refreshToken)
 	if err != nil {
@@ -245,9 +243,7 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 	return nil
 }
 
-/* ===================== PASSWORD RESET ===================== */
-
-// GenerateResetToken creates password reset token
+// GenerateResetToken creates a password reset token for a user
 func (s *Service) GenerateResetToken(ctx context.Context, email string) (string, error) {
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
@@ -262,7 +258,7 @@ func (s *Service) GenerateResetToken(ctx context.Context, email string) (string,
 	return token, nil
 }
 
-// ResetPassword updates password using reset token
+// ResetPassword updates the user password using a reset token
 func (s *Service) ResetPassword(
 	ctx context.Context,
 	resetToken string,
@@ -286,14 +282,12 @@ func (s *Service) ResetPassword(
 	return s.repo.ClearResetToken(ctx, user.ID)
 }
 
-/* ===================== INTERNAL ===================== */
-
-// GetUserByID returns user details
+// GetUserByID retrieves user details by their unique identifier
 func (s *Service) GetUserByID(ctx context.Context, userID string) (*User, error) {
 	return s.repo.GetUserByID(ctx, userID)
 }
 
-// generateAccessToken creates JWT access token
+// generateAccessToken creates a JWT access token for a user
 func (s *Service) generateAccessToken(user *User) (string, error) {
 	claims := jwt.MapClaims{
 		"sub":   user.ID,

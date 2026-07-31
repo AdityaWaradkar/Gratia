@@ -10,10 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-/*
-Domain errors
-*/
-
+// Domain errors for claim operations
 var (
 	ErrUnauthorized      = errors.New("unauthorized action")
 	ErrInvalidState      = errors.New("invalid claim state transition")
@@ -23,14 +20,12 @@ var (
 	ErrSelfClaim         = errors.New("ngo cannot claim its own food listing")
 )
 
-/*
-External service contracts
-*/
-
+// UserClient defines the interface for user service operations
 type UserClient interface {
 	IsNGOVerified(ctx context.Context, userID string) (bool, error)
 }
 
+// FoodClient defines the interface for food service operations
 type FoodClient interface {
 	GetFoodForClaim(
 		ctx context.Context,
@@ -38,10 +33,7 @@ type FoodClient interface {
 	) (donorUserID string, status string, err error)
 }
 
-/*
-Service
-*/
-
+// Service handles business logic for claim operations
 type Service struct {
 	db         *sqlx.DB
 	repo       ClaimRepository
@@ -49,6 +41,7 @@ type Service struct {
 	foodClient FoodClient
 }
 
+// NewService creates a new claim service instance
 func NewService(
 	db *sqlx.DB,
 	repo ClaimRepository,
@@ -63,10 +56,7 @@ func NewService(
 	}
 }
 
-/*
-Create Claim
-*/
-
+// CreateClaim creates a new claim for a food listing
 func (s *Service) CreateClaim(
 	ctx context.Context,
 	foodListingID string,
@@ -94,7 +84,6 @@ func (s *Service) CreateClaim(
 		return nil, ErrFoodNotOpen
 	}
 
-	// NGO cannot claim its own donation.
 	if donorUserID == ngoUserID {
 		return nil, ErrSelfClaim
 	}
@@ -121,12 +110,9 @@ func (s *Service) CreateClaim(
 	}
 
 	if err := s.repo.Create(ctx, tx, claim); err != nil {
-
-		// PostgreSQL unique partial index violation
 		if isUniqueViolation(err) {
 			return nil, ErrActiveClaimExists
 		}
-
 		return nil, err
 	}
 
@@ -137,10 +123,7 @@ func (s *Service) CreateClaim(
 	return claim, nil
 }
 
-/*
-Donor Actions
-*/
-
+// ApproveClaim approves a claim by the donor
 func (s *Service) ApproveClaim(
 	ctx context.Context,
 	claimID string,
@@ -155,6 +138,7 @@ func (s *Service) ApproveClaim(
 	)
 }
 
+// RejectClaim rejects a claim by the donor
 func (s *Service) RejectClaim(
 	ctx context.Context,
 	claimID string,
@@ -169,10 +153,7 @@ func (s *Service) RejectClaim(
 	)
 }
 
-/*
-NGO Actions
-*/
-
+// CancelByNGO cancels a claim by the NGO
 func (s *Service) CancelByNGO(
 	ctx context.Context,
 	claimID string,
@@ -187,6 +168,7 @@ func (s *Service) CancelByNGO(
 	)
 }
 
+// MarkPickedUp marks a claim as picked up by the NGO
 func (s *Service) MarkPickedUp(
 	ctx context.Context,
 	claimID string,
@@ -201,6 +183,7 @@ func (s *Service) MarkPickedUp(
 	)
 }
 
+// MarkDelivered marks a claim as delivered by the NGO
 func (s *Service) MarkDelivered(
 	ctx context.Context,
 	claimID string,
@@ -215,10 +198,7 @@ func (s *Service) MarkDelivered(
 	)
 }
 
-/*
-Shared State Transition Logic
-*/
-
+// updateStatus handles the shared state transition logic for claims
 func (s *Service) updateStatus(
 	ctx context.Context,
 	claimID string,
@@ -265,10 +245,7 @@ func (s *Service) updateStatus(
 	return tx.Commit()
 }
 
-/*
-PostgreSQL Helpers
-*/
-
+// isUniqueViolation checks if the error is a PostgreSQL unique constraint violation
 func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false

@@ -7,13 +7,12 @@ import (
 	"github.com/adityawaradkar/gratia/food_service/internal/middleware"
 )
 
-// RegisterRoutes wires all HTTP routes
+// RegisterRoutes wires all HTTP routes for the food service
 func RegisterRoutes(handler *food.Handler) http.Handler {
 
 	mux := http.NewServeMux()
 
-	/* ===================== INTERNAL (SERVICE-TO-SERVICE) ===================== */
-
+	// Internal service-to-service endpoints
 	mux.HandleFunc(
 		"GET /internal/foods/{id}/validate",
 		handler.ValidateFoodClaim,
@@ -24,8 +23,7 @@ func RegisterRoutes(handler *food.Handler) http.Handler {
 		handler.MarkFoodClaimed,
 	)
 
-	/* ===================== FOOD LISTINGS ===================== */
-
+	// Food listing endpoints with authentication
 	mux.Handle(
 		"POST /foods",
 		middleware.Auth(
@@ -61,8 +59,7 @@ func RegisterRoutes(handler *food.Handler) http.Handler {
 		),
 	)
 
-	/* ===================== HEALTH ===================== */
-
+	// Health check endpoint
 	mux.HandleFunc(
 		"GET /health",
 		func(w http.ResponseWriter, _ *http.Request) {

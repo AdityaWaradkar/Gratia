@@ -7,18 +7,17 @@ import (
 	"github.com/adityawaradkar/gratia/auth_service/internal/middleware"
 )
 
-// Handler handles HTTP requests
+// Handler handles HTTP requests for authentication
 type Handler struct {
 	service *Service
 }
 
-// NewHandler creates auth handler
+// NewHandler creates a new auth handler instance
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-/* ===================== REQUEST MODELS ===================== */
-
+// Request models for auth endpoints
 type RegisterRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -43,8 +42,7 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
-/* ===================== HELPERS ===================== */
-
+// Helper functions for HTTP responses
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -55,9 +53,7 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"message": message})
 }
 
-/* ===================== AUTH ROUTES ===================== */
-
-// RegisterUser handles user signup
+// RegisterUser handles new user registration
 func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -94,7 +90,7 @@ func (h *Handler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, user)
 }
 
-// LoginUser handles login
+// LoginUser handles user authentication and returns tokens
 func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -119,7 +115,7 @@ func (h *Handler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, tokens)
 }
 
-// RefreshTokens issues new tokens
+// RefreshTokens generates new access and refresh tokens
 func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -141,7 +137,7 @@ func (h *Handler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, tokens)
 }
 
-// Logout revokes refresh token
+// Logout revokes the refresh token and ends the session
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -157,9 +153,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-/* ===================== PASSWORD RESET ===================== */
-
-// ForgotPassword generates reset token
+// ForgotPassword initiates password reset flow and returns a reset token
 func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req ForgotPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -178,7 +172,7 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ResetPassword updates password
+// ResetPassword updates the user password using a reset token
 func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	var req ResetPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -198,9 +192,7 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-/* ===================== INTERNAL ===================== */
-
-// GetCurrentUser returns authenticated user
+// GetCurrentUser retrieves the authenticated user's information
 func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserID(r.Context())
 	if userID == "" {
@@ -217,7 +209,7 @@ func (h *Handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
-//Health Check
+// HealthCheck returns the service health status
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"status": "ok",

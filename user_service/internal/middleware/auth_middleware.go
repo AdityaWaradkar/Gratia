@@ -14,7 +14,7 @@ type jwtClaims struct {
 	jwt.RegisteredClaims
 }
 
-// Auth validates JWT and injects user context
+// Auth validates JWT and injects user context into the request
 func Auth(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +42,6 @@ func Auth(next http.Handler) http.Handler {
 			claims,
 			func(token *jwt.Token) (interface{}, error) {
 
-				// Ensure HMAC signing method
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, jwt.ErrTokenSignatureInvalid
 				}

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// UserClient defines calls to user_service
+// UserClient defines the interface for user service operations
 type UserClient interface {
 	IsDonor(ctx context.Context, userID string) (bool, error)
 	IsVerifiedNGO(ctx context.Context, userID string) (bool, error)
@@ -19,7 +19,7 @@ type userClient struct {
 	client  *http.Client
 }
 
-// NewUserClient creates a new user service client
+// NewUserClient creates a new user service client instance
 func NewUserClient(baseURL string) UserClient {
 	return &userClient{
 		baseURL: baseURL,
@@ -29,9 +29,7 @@ func NewUserClient(baseURL string) UserClient {
 	}
 }
 
-/* ===================== DONOR ===================== */
-
-// IsDonor checks whether a donor profile exists
+// IsDonor checks whether a user has a donor profile
 func (u *userClient) IsDonor(
 	ctx context.Context,
 	userID string,
@@ -66,9 +64,7 @@ func (u *userClient) IsDonor(
 	}
 }
 
-/* ===================== NGO ===================== */
-
-// IsVerifiedNGO checks if NGO profile exists and is verified
+// IsVerifiedNGO checks if a user has a verified NGO profile
 func (u *userClient) IsVerifiedNGO(
 	ctx context.Context,
 	userID string,

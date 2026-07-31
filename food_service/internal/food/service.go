@@ -7,13 +7,13 @@ import (
 	"time"
 )
 
-// Service contains business logic for food_service
+// Service contains business logic for food operations
 type Service struct {
 	repo       Repository
 	userClient UserClient
 }
 
-// NewService creates food service
+// NewService creates a new food service instance
 func NewService(
 	repo Repository,
 	userClient UserClient,
@@ -23,8 +23,6 @@ func NewService(
 		userClient: userClient,
 	}
 }
-
-/* ===================== CREATE ===================== */
 
 // CreateFoodListing allows only DONOR users to create food listings
 func (s *Service) CreateFoodListing(
@@ -91,9 +89,7 @@ func (s *Service) CreateFoodListing(
 	return listing, nil
 }
 
-/* ===================== READ ===================== */
-
-// GetFoodListing returns a single listing
+// GetFoodListing retrieves a single food listing by ID
 func (s *Service) GetFoodListing(
 	ctx context.Context,
 	id string,
@@ -106,7 +102,7 @@ func (s *Service) GetFoodListing(
 	return s.repo.GetFoodListingByID(ctx, id)
 }
 
-// ListAvailableFoodListings returns available listings
+// ListAvailableFoodListings retrieves all available food listings
 func (s *Service) ListAvailableFoodListings(
 	ctx context.Context,
 ) ([]*FoodListing, error) {
@@ -117,9 +113,7 @@ func (s *Service) ListAvailableFoodListings(
 	)
 }
 
-/* ===================== UPDATE ===================== */
-
-// UpdateFoodListing allows donor to update own listing
+// UpdateFoodListing allows a donor to update their own listing
 func (s *Service) UpdateFoodListing(
 	ctx context.Context,
 	userID string,
@@ -172,9 +166,7 @@ func (s *Service) UpdateFoodListing(
 	)
 }
 
-/* ===================== CANCEL ===================== */
-
-// CancelFoodListing allows donor to cancel own listing
+// CancelFoodListing allows a donor to cancel their own listing
 func (s *Service) CancelFoodListing(
 	ctx context.Context,
 	userID string,
@@ -208,9 +200,7 @@ func (s *Service) CancelFoodListing(
 	)
 }
 
-/* ===================== CLAIM VALIDATION ===================== */
-
-// IsClaimable is used internally by claim_service
+// IsClaimable validates if a food listing can be claimed
 func (s *Service) IsClaimable(
 	ctx context.Context,
 	id string,
@@ -235,9 +225,7 @@ func (s *Service) IsClaimable(
 	return true, "", nil
 }
 
-/* ===================== CLAIM LOCK ===================== */
-
-// MarkClaimed is called by claim_service
+// MarkClaimed marks a food listing as claimed
 func (s *Service) MarkClaimed(
 	ctx context.Context,
 	id string,
@@ -262,9 +250,7 @@ func (s *Service) MarkClaimed(
 	)
 }
 
-/* ===================== EXPIRY ===================== */
-
-// ExpireListings is used by background jobs
+// ExpireListings expires food listings that have passed their expiry time
 func (s *Service) ExpireListings(
 	ctx context.Context,
 ) error {

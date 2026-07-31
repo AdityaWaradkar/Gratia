@@ -16,12 +16,7 @@ const (
 	connMaxIdleTime = 2 * time.Minute
 )
 
-/*
-New
-
-Creates and configures a PostgreSQL connection pool.
-*/
-
+// New creates and configures a PostgreSQL connection pool
 func New() (*sqlx.DB, error) {
 
 	db, err := sqlx.Connect(
