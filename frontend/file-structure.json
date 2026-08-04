@@ -1,0 +1,397 @@
+{
+  "name": ".",
+  "type": "directory",
+  "children": [
+    {
+      "name": ".env.local",
+      "type": "file"
+    },
+    {
+      "name": ".gitignore",
+      "type": "file"
+    },
+    {
+      "name": "AGENTS.md",
+      "type": "file"
+    },
+    {
+      "name": "CLAUDE.md",
+      "type": "file"
+    },
+    {
+      "name": "README.md",
+      "type": "file"
+    },
+    {
+      "name": "app",
+      "type": "directory",
+      "children": [
+        {
+          "name": "(auth)",
+          "type": "directory",
+          "children": [
+            {
+              "name": "forgot-password",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "page.tsx",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "login",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "page.tsx",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "register",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "page.tsx",
+                  "type": "file"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "(dashboard)",
+          "type": "directory",
+          "children": [
+            {
+              "name": "admin",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "layout.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "page.tsx",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "donor",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "layout.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "page.tsx",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "layout.tsx",
+              "type": "file"
+            },
+            {
+              "name": "ngo",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "layout.tsx",
+                  "type": "file"
+                },
+                {
+                  "name": "page.tsx",
+                  "type": "file"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "api",
+          "type": "directory",
+          "children": [
+            {
+              "name": "auth",
+              "type": "directory",
+              "children": [
+                {
+                  "name": "[...nextauth]",
+                  "type": "directory",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "favicon.ico",
+          "type": "file"
+        },
+        {
+          "name": "globals.css",
+          "type": "file"
+        },
+        {
+          "name": "layout.tsx",
+          "type": "file"
+        },
+        {
+          "name": "page.tsx",
+          "type": "file"
+        },
+        {
+          "name": "providers.tsx",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "name": "components",
+      "type": "directory",
+      "children": [
+        {
+          "name": "forms",
+          "type": "directory",
+          "children": [
+            {
+              "name": "forgot-password-form.tsx",
+              "type": "file"
+            },
+            {
+              "name": "login-form.tsx",
+              "type": "file"
+            },
+            {
+              "name": "register-form.tsx",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "layout",
+          "type": "directory",
+          "children": [
+            {
+              "name": "footer.tsx",
+              "type": "file"
+            },
+            {
+              "name": "navbar.tsx",
+              "type": "file"
+            },
+            {
+              "name": "sidebar.tsx",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "shared",
+          "type": "directory",
+          "children": [
+            {
+              "name": "claim-card.tsx",
+              "type": "file"
+            },
+            {
+              "name": "food-card.tsx",
+              "type": "file"
+            },
+            {
+              "name": "loading-spinner.tsx",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "ui",
+          "type": "directory",
+          "children": [
+            {
+              "name": "avatar.tsx",
+              "type": "file"
+            },
+            {
+              "name": "badge.tsx",
+              "type": "file"
+            },
+            {
+              "name": "button.tsx",
+              "type": "file"
+            },
+            {
+              "name": "card.tsx",
+              "type": "file"
+            },
+            {
+              "name": "input.tsx",
+              "type": "file"
+            },
+            {
+              "name": "label.tsx",
+              "type": "file"
+            },
+            {
+              "name": "select.tsx",
+              "type": "file"
+            },
+            {
+              "name": "textarea.tsx",
+              "type": "file"
+            },
+            {
+              "name": "toast.tsx",
+              "type": "file"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "eslint.config.mjs",
+      "type": "file"
+    },
+    {
+      "name": "lib",
+      "type": "directory",
+      "children": [
+        {
+          "name": "api",
+          "type": "directory",
+          "children": [
+            {
+              "name": "auth.ts",
+              "type": "file"
+            },
+            {
+              "name": "claim.ts",
+              "type": "file"
+            },
+            {
+              "name": "client.ts",
+              "type": "file"
+            },
+            {
+              "name": "food.ts",
+              "type": "file"
+            },
+            {
+              "name": "user.ts",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "hooks",
+          "type": "directory",
+          "children": [
+            {
+              "name": "use-auth.ts",
+              "type": "file"
+            },
+            {
+              "name": "use-claims.ts",
+              "type": "file"
+            },
+            {
+              "name": "use-foods.ts",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "utils.ts",
+          "type": "file"
+        },
+        {
+          "name": "validations",
+          "type": "directory",
+          "children": [
+            {
+              "name": "auth.ts",
+              "type": "file"
+            },
+            {
+              "name": "food.ts",
+              "type": "file"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "middleware.ts",
+      "type": "file"
+    },
+    {
+      "name": "next-env.d.ts",
+      "type": "file"
+    },
+    {
+      "name": "next.config.ts",
+      "type": "file"
+    },
+    {
+      "name": "package-lock.json",
+      "type": "file"
+    },
+    {
+      "name": "package.json",
+      "type": "file"
+    },
+    {
+      "name": "postcss.config.mjs",
+      "type": "file"
+    },
+    {
+      "name": "public",
+      "type": "directory",
+      "children": [
+        {
+          "name": "icons",
+          "type": "directory",
+          "children": []
+        },
+        {
+          "name": "images",
+          "type": "directory",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "tsconfig.json",
+      "type": "file"
+    },
+    {
+      "name": "types",
+      "type": "directory",
+      "children": [
+        {
+          "name": "auth.ts",
+          "type": "file"
+        },
+        {
+          "name": "claim.ts",
+          "type": "file"
+        },
+        {
+          "name": "food.ts",
+          "type": "file"
+        },
+        {
+          "name": "user.ts",
+          "type": "file"
+        }
+      ]
+    }
+  ]
+}

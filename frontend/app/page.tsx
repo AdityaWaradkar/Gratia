@@ -1,69 +1,128 @@
-import Image from "next/image";
+'use client'
+
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Leaf, Users, Heart, Clock } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+      {/* Navigation */}
+      <nav className="border-b bg-white/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Leaf className="h-8 w-8 text-green-600" />
+            <span className="text-2xl font-bold text-green-700">Gratia</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/login">
+              <Button variant="outline">Log In</Button>
+            </Link>
+            <Link href="/register">
+              <Button>Get Started</Button>
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-20 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+            Bridge the Gap Between
+            <br />
+            <span className="text-green-600">Excess Food</span> and
+            <span className="text-green-600"> Those in Need</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
+            Gratia connects restaurants with excess food to NGOs and communities,
+            reducing waste and fighting hunger together.
           </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/register">
+              <Button size="lg" className="text-lg px-8">
+                Start Helping
+              </Button>
+            </Link>
+            <Link href="#how-it-works">
+              <Button size="lg" variant="outline" className="text-lg px-8">
+                Learn More
+              </Button>
+            </Link>
+          </div>
+        </motion.div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-20">
+          <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition">
+            <div className="text-3xl font-bold text-green-600">100+</div>
+            <div className="text-gray-600">Restaurants</div>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition">
+            <div className="text-3xl font-bold text-green-600">50+</div>
+            <div className="text-gray-600">NGOs</div>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition">
+            <div className="text-3xl font-bold text-green-600">10K+</div>
+            <div className="text-gray-600">Meals Served</div>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition">
+            <div className="text-3xl font-bold text-green-600">5K+</div>
+            <div className="text-gray-600">People Helped</div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </section>
+
+      {/* Features */}
+      <section id="how-it-works" className="container mx-auto px-4 py-20">
+        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+          How Gratia Works
+        </h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="text-center p-6 bg-white rounded-xl shadow-sm"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="h-8 w-8 text-green-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">1. Register</h3>
+            <p className="text-gray-600">Join as a donor, NGO, or admin</p>
+          </motion.div>
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="text-center p-6 bg-white rounded-xl shadow-sm"
           >
-            Documentation
-          </a>
+            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="h-8 w-8 text-green-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">2. List Food</h3>
+            <p className="text-gray-600">Donors list excess food items</p>
+          </motion.div>
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="text-center p-6 bg-white rounded-xl shadow-sm"
+          >
+            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Heart className="h-8 w-8 text-green-600" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">3. Claim & Deliver</h3>
+            <p className="text-gray-600">NGOs claim and distribute food</p>
+          </motion.div>
         </div>
-      </main>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t bg-white">
+        <div className="container mx-auto px-4 py-8 text-center text-gray-600">
+          <p>© 2026 Gratia. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
-  );
+  )
 }
