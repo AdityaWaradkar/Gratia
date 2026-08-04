@@ -17,7 +17,7 @@ COPY . .
 
 # Build the food service binary with optimizations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-w -s" -o food_service ./cmd
+    go build -ldflags="-w -s" -o food_service ./cmd/server
 
 # Runtime stage for running the food service
 FROM alpine:latest

@@ -17,7 +17,7 @@ COPY . .
 
 # Build the user service binary with optimizations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-w -s" -o user_service ./cmd
+    go build -ldflags="-w -s" -o user_service ./cmd/server
 
 # Runtime stage for running the user service
 FROM alpine:latest

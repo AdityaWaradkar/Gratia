@@ -17,7 +17,7 @@ COPY . .
 
 # Build the claim service binary with optimizations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-w -s" -o claim_service ./cmd
+    go build -ldflags="-w -s" -o claim_service ./cmd/server
 
 # Runtime stage for running the claim service
 FROM alpine:latest

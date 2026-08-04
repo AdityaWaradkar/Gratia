@@ -17,7 +17,7 @@ COPY . .
 
 # Build the auth service binary with optimizations
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-w -s" -o auth_service ./cmd
+    go build -ldflags="-w -s" -o auth_service ./cmd/server
 
 # Runtime stage for running the auth service
 FROM alpine:latest

@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # ==================== DATABASE ====================
+  postgres:
+    image: postgres:16-alpine
+    container_name: gratia-postgres
+    environment:
+      POSTGRES_USER: gratia
+      POSTGRES_PASSWORD: gratia123
+      POSTGRES_DB: gratia
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gratia"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gratia-network
+
+  # ==================== AUTH SERVICE ====================
+  auth_service:
+    build:
+      context: ./auth_service
+      dockerfile: Dockerfile
+    container_name: gratia-auth
+    environment:
+      ENV: development
+      PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      DATABASE_URL: postgres://gratia:gratia123@postgres:5432/gratia?sslmode=disable
+      ACCESS_TOKEN_TTL: 15m
+      REFRESH_TOKEN_TTL: 168h
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gratia-network
+    restart: unless-stopped
+
+  # ==================== USER SERVICE ====================
+  user_service:
+    build:
+      context: ./user_service
+      dockerfile: Dockerfile
+    container_name: gratia-user
+    environment:
+      ENV: development
+      PORT: 8081
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      DATABASE_URL: postgres://gratia:gratia123@postgres:5432/gratia?sslmode=disable
+      LOG_LEVEL: info
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gratia-network
+    restart: unless-stopped
+
+  # ==================== FOOD SERVICE ====================
+  food_service:
+    build:
+      context: ./food_service
+      dockerfile: Dockerfile
+    container_name: gratia-food
+    environment:
+      ENV: development
+      PORT: 8082
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      DATABASE_URL: postgres://gratia:gratia123@postgres:5432/gratia?sslmode=disable
+      USER_SERVICE_URL: http://user_service:8081
+      LOG_LEVEL: info
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user_service:
+        condition: service_started
+    networks:
+      - gratia-network
+    restart: unless-stopped
+
+  # ==================== CLAIM SERVICE ====================
+  claim_service:
+    build:
+      context: ./claim_service
+      dockerfile: Dockerfile
+    container_name: gratia-claim
+    environment:
+      ENV: development
+      PORT: 8083
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      DATABASE_URL: postgres://gratia:gratia123@postgres:5432/gratia?sslmode=disable
+      USER_SERVICE_URL: http://user_service:8081
+      FOOD_SERVICE_URL: http://food_service:8082
+      LOG_LEVEL: info
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user_service:
+        condition: service_started
+      food_service:
+        condition: service_started
+    networks:
+      - gratia-network
+    restart: unless-stopped
+
+networks:
+  gratia-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
