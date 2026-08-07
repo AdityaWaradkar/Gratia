@@ -1,47 +1,46 @@
-# Build stage for compiling the auth service binary
+# Build stage for compiling the highly optimized Go binary
 FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-# Install CA certificates for secure connections
-RUN apk add --no-cache ca-certificates
+# Install CA certificates and tzdata for secure network calls and accurate timezone handling
+RUN apk add --no-cache ca-certificates tzdata
 
-# Copy dependency files first to leverage Docker caching
+# Copy dependency files first to maximize Docker layer caching
 COPY go.mod go.sum ./
-
-# Download all Go module dependencies
 RUN go mod download
 
-# Copy the entire source code into the container
+# Copy the core service code into the build container
 COPY . .
 
-# Build the auth service binary with optimizations
+# Compile a statically linked binary with debug symbols stripped for minimum size
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-w -s" -o auth_service ./cmd/server
 
-# Runtime stage for running the auth service
+# Runtime stage using a pristine, minimal alpine image
 FROM alpine:latest
 
 WORKDIR /app
 
-# Install CA certificates for secure connections
-RUN apk add --no-cache ca-certificates
+# Import necessary certificates and timezone data directly from the builder stage
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
-# Create a non-root user for security
+# Establish a strict non-root user context to prevent privilege escalation vulnerabilities
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copy the built binary from the builder stage
+# Copy only the finalized executable binary from the builder stage
 COPY --from=builder /app/auth_service .
 
-# Switch to the non-root user
+# Enforce the non-root user for all subsequent container operations
 USER appuser
 
-# Expose the default service port
+# Document the designated network port for container orchestration tools
 EXPOSE 8080
 
-# Health check endpoint to monitor service status
+# Actively monitor service health to allow orchestrators to restart frozen containers
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --spider http://localhost:8080/health || exit 1
+  CMD wget --spider -q http://localhost:8080/health || exit 1
 
-# Start the auth service
+# Execute the isolated authentication service
 CMD ["./auth_service"]

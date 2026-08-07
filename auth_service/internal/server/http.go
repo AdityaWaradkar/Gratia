@@ -1,31 +1,34 @@
 package server
 
 import (
-	"net/http"
+    "net/http"
 
-	"github.com/adityawaradkar/gratia/auth_service/internal/auth"
-	"github.com/adityawaradkar/gratia/auth_service/internal/middleware"
+    "github.com/adityawaradkar/gratia/auth_service/internal/auth"
+    "github.com/adityawaradkar/gratia/auth_service/internal/middleware"
+    "github.com/gorilla/mux"
 )
 
-// RegisterRoutes wires all HTTP routes
-func RegisterRoutes(handler *auth.Handler) http.Handler {
-	mux := http.NewServeMux()
+// RegisterRoutes constructs the full routing tree using strict HTTP methods
+func RegisterRoutes(handler *auth.Handler, jwtSecret string) http.Handler {
+    router := mux.NewRouter()
 
-	// Public auth routes
-	mux.HandleFunc("/auth/register", handler.RegisterUser)
-	mux.HandleFunc("/auth/login", handler.LoginUser)
-	mux.HandleFunc("/auth/refresh", handler.RefreshTokens)
-	mux.HandleFunc("/auth/logout", handler.Logout)
-	mux.HandleFunc("/auth/forgot-password", handler.ForgotPassword)
-	mux.HandleFunc("/auth/reset-password", handler.ResetPassword)
-	mux.HandleFunc("/health", handler.HealthCheck)
+    // Public authentication endpoints for user onboarding and session management
+    router.HandleFunc("/register", handler.RegisterUser).Methods(http.MethodPost)
+    router.HandleFunc("/login", handler.LoginUser).Methods(http.MethodPost)
+    router.HandleFunc("/refresh", handler.RefreshTokens).Methods(http.MethodPost)
+    router.HandleFunc("/logout", handler.Logout).Methods(http.MethodPost)
+    
+    // Account recovery endpoints
+    router.HandleFunc("/forgot-password", handler.ForgotPassword).Methods(http.MethodPost)
+    router.HandleFunc("/reset-password", handler.ResetPassword).Methods(http.MethodPost)
+    
+    // Unauthenticated infrastructure health check for Docker/Kubernetes
+    router.HandleFunc("/health", handler.HealthCheck).Methods(http.MethodGet)
 
+    // Protected endpoints requiring a valid JSON Web Token
+    protected := router.PathPrefix("/").Subrouter()
+    protected.Use(middleware.Auth(jwtSecret))
+    protected.HandleFunc("/me", handler.GetCurrentUser).Methods(http.MethodGet)
 
-	// Protected routes
-	mux.Handle(
-		"/auth/me",
-		middleware.Auth(http.HandlerFunc(handler.GetCurrentUser)),
-	)
-
-	return mux
+    return router
 }

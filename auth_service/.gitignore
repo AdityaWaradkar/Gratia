@@ -11,13 +11,13 @@
 bin/
 dist/
 build/
+auth_service
 
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
 *.test
 *.out
 
@@ -37,7 +37,6 @@ vendor/
 # =========================
 .vscode/
 .idea/
-
 *.swp
 *.swo
 
@@ -69,7 +68,6 @@ temp/
 # =========================
 coverage.out
 coverage.html
-
 
 # =========================
 # Kubernetes Secrets

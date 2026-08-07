@@ -1,13 +1,20 @@
 package auth
 
-// Roles handled ONLY by auth service
+// Role defines a strict custom type for access control levels
+type Role string
+
+// Core roles required by the system architecture
 const (
-	RoleUser  = "USER"  // Default authenticated user
-	RoleAdmin = "ADMIN" // Platform administrator
+    RoleDonor Role = "DONOR"
+    RoleNGO   Role = "NGO"
+    RoleAdmin Role = "ADMIN"
+    RoleUser  Role = "USER"
 )
 
-// ValidRoles allowed in auth service
-var ValidRoles = map[string]bool{
-	RoleUser:  true,
-	RoleAdmin: true,
+// ValidRoles provides an O(1) lookup map for input sanitization
+var ValidRoles = map[Role]bool{
+    RoleDonor: true,
+    RoleNGO:   true,
+    RoleAdmin: true,
+    RoleUser:  true,
 }

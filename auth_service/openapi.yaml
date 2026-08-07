@@ -13,245 +13,216 @@ info:
     - Session management
     - Password reset workflows
     - Protected user endpoints
-
   contact:
     name: Aditya Waradkar
     email: aditya@example.com
 
 servers:
   - url: http://localhost:8080
-    description: Local Development
-
-  - url: https://auth.gratia.dev
-    description: Development Server
+    description: Local Development Server
 
 tags:
   - name: Authentication
-    description: Authentication and token management
-
+    description: Identity and token lifecycle management
   - name: User
-    description: Authenticated user operations
-
+    description: Authenticated profile operations
   - name: Password
-    description: Password recovery and reset
-
+    description: Secure account recovery flows
   - name: Monitoring
-    description: Health monitoring endpoints
+    description: Infrastructure health checks
 
 security:
   - BearerAuth: []
 
 paths:
-
-  /auth/register:
+  /register:
     post:
       summary: Register a new user
-      description: Creates a new authenticated user account.
+      description: Creates a new authenticated user account with strict role validation.
       operationId: registerUser
-
       security: []
-
       tags:
         - Authentication
-
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
-
       responses:
         '201':
-          description: User registered successfully
+          description: Account provisioned successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
-
         '400':
-          description: Invalid request or user already exists
+          description: Malformed payload or validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email address already registered
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/login:
+  /login:
     post:
-      summary: Login user
-      description: Authenticates user and issues JWT access and refresh tokens.
+      summary: Authenticate user
+      description: Verifies credentials and provisions stateful and stateless tokens.
       operationId: loginUser
-
       security: []
-
       tags:
         - Authentication
-
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
-
       responses:
         '200':
-          description: Authentication successful
+          description: Session established successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenPair'
-
         '401':
-          description: Invalid credentials
+          description: Invalid authentication credentials
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/refresh:
+  /refresh:
     post:
-      summary: Refresh authentication tokens
-      description: Rotates refresh token and issues new access token.
+      summary: Rotate authentication tokens
+      description: Consumes a valid refresh token to issue a new credential pair.
       operationId: refreshTokens
-
       security: []
-
       tags:
         - Authentication
-
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RefreshRequest'
-
       responses:
         '200':
-          description: Tokens refreshed successfully
+          description: Token rotation successful
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TokenPair'
-
         '401':
-          description: Invalid or expired refresh token
+          description: Token expired, revoked, or invalid
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/logout:
+  /logout:
     post:
-      summary: Logout authenticated session
-      description: Revokes refresh token and invalidates session.
+      summary: Terminate session
+      description: Permanently revokes the provided refresh token.
       operationId: logoutUser
-
       security: []
-
       tags:
         - Authentication
-
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RefreshRequest'
-
       responses:
         '204':
-          description: Logout successful
-
+          description: Session successfully destroyed
         '401':
-          description: Invalid refresh token
+          description: Invalid token provided
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/me:
+  /me:
     get:
-      summary: Get current authenticated user
-      description: Returns currently authenticated user details.
+      summary: Retrieve authenticated profile
+      description: Returns the user details associated with the current JWT.
       operationId: getCurrentUser
-
       tags:
         - User
-
       responses:
         '200':
-          description: Authenticated user details
+          description: Profile retrieved successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserResponse'
-
         '401':
-          description: Unauthorized
+          description: Missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User record no longer exists
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/forgot-password:
+  /forgot-password:
     post:
-      summary: Generate password reset token
-      description: Creates password reset token for account recovery.
+      summary: Initiate account recovery
+      description: Generates a secure reset token if the email exists.
       operationId: forgotPassword
-
       security: []
-
       tags:
         - Password
-
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ForgotPasswordRequest'
-
       responses:
         '200':
-          description: Reset token generated
+          description: Recovery process initiated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PasswordResetResponse'
-
         '400':
-          description: Invalid email
+          description: Malformed email payload
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/reset-password:
+  /reset-password:
     post:
-      summary: Reset account password
-      description: Resets password using valid reset token.
+      summary: Replace credentials
+      description: Overwrites user password using a verified recovery token.
       operationId: resetPassword
-
       security: []
-
       tags:
         - Password
-
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ResetPasswordRequest'
-
       responses:
         '204':
-          description: Password reset successful
-
+          description: Credentials successfully updated
         '400':
-          description: Invalid reset token or password
+          description: Invalid token or weak password
           content:
             application/json:
               schema:
@@ -259,17 +230,14 @@ paths:
 
   /health:
     get:
-      summary: Service health check
+      summary: Container readiness probe
       operationId: healthCheck
-
       security: []
-
       tags:
         - Monitoring
-
       responses:
         '200':
-          description: Service healthy
+          description: Service is accepting traffic
           content:
             application/json:
               schema:
@@ -278,10 +246,12 @@ paths:
                 properties:
                   status:
                     type: string
-                    example: ok
+                    example: healthy
+                  service:
+                    type: string
+                    example: auth_service
 
 components:
-
   securitySchemes:
     BearerAuth:
       type: http
@@ -289,46 +259,40 @@ components:
       bearerFormat: JWT
 
   schemas:
-
     RegisterRequest:
       type: object
       additionalProperties: false
-
       required:
         - email
         - password
-
       properties:
         email:
           type: string
           format: email
           example: user@example.com
-
         password:
           type: string
           minLength: 8
-          example: Password123!
-
+          example: SecurePass123!
         role:
           type: string
           enum:
-            - USER
+            - DONOR
+            - NGO
             - ADMIN
+            - USER
           default: USER
 
     LoginRequest:
       type: object
       additionalProperties: false
-
       required:
         - email
         - password
-
       properties:
         email:
           type: string
           format: email
-
         password:
           type: string
           format: password
@@ -336,10 +300,8 @@ components:
     RefreshRequest:
       type: object
       additionalProperties: false
-
       required:
         - refreshToken
-
       properties:
         refreshToken:
           type: string
@@ -347,10 +309,8 @@ components:
     ForgotPasswordRequest:
       type: object
       additionalProperties: false
-
       required:
         - email
-
       properties:
         email:
           type: string
@@ -359,68 +319,59 @@ components:
     ResetPasswordRequest:
       type: object
       additionalProperties: false
-
       required:
         - token
         - newPassword
-
       properties:
         token:
           type: string
-
         newPassword:
           type: string
           minLength: 8
 
     TokenPair:
       type: object
-
       properties:
         accessToken:
           type: string
-
         refreshToken:
           type: string
 
     UserResponse:
       type: object
-
       properties:
         id:
           type: string
           format: uuid
-
         email:
           type: string
           format: email
-
         role:
           type: string
           enum:
-            - USER
+            - DONOR
+            - NGO
             - ADMIN
-
+            - USER
         emailVerified:
           type: boolean
-
         createdAt:
           type: string
           format: date-time
-
         updatedAt:
           type: string
           format: date-time
 
     PasswordResetResponse:
       type: object
-
       properties:
         resetToken:
+          type: string
+        message:
           type: string
 
     ErrorResponse:
       type: object
-
       properties:
-        message:
+        error:
           type: string

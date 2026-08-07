@@ -1,47 +1,84 @@
 package main
 
 import (
-	"context"
-	"net/http"
+    "context"
+    "errors"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
 
-	"github.com/adityawaradkar/gratia/auth_service/internal/auth"
-	"github.com/adityawaradkar/gratia/auth_service/internal/config"
-	"github.com/adityawaradkar/gratia/auth_service/internal/db"
-	"github.com/adityawaradkar/gratia/auth_service/internal/logger"
-	"github.com/adityawaradkar/gratia/auth_service/internal/server"
+    "github.com/adityawaradkar/gratia/auth_service/internal/auth"
+    "github.com/adityawaradkar/gratia/auth_service/internal/config"
+    "github.com/adityawaradkar/gratia/auth_service/internal/db"
+    "github.com/adityawaradkar/gratia/auth_service/internal/logger"
+    "github.com/adityawaradkar/gratia/auth_service/internal/server"
 )
 
 func main() {
-	// Load configuration from environment variables
-	config.Load()
+    // Load configuration securely without relying on global variables
+    cfg := config.Load()
 
-	// Initialize logger with service name
-	log := logger.New("AUTH")
+    // Initialize structured JSON logging based on the configured environment level
+    log := logger.New("auth_service", cfg.LogLevel)
 
-	// Connect to the database
-	dbPool := db.Connect(context.Background(), config.AppConfig.DatabaseURL)
-	defer dbPool.Close()
+    // Create a base context for application startup operations
+    ctx := context.Background()
 
-	// Initialize repository for database operations
-	repo := auth.NewRepository(dbPool)
+    // Establish a highly concurrent connection pool to PostgreSQL and handle errors safely
+    dbPool, err := db.Connect(ctx, cfg.DatabaseURL)
+    if err != nil {
+        log.Error("Failed to initialize database pool", "error", err)
+        os.Exit(1)
+    }
+    defer dbPool.Close()
 
-	// Initialize service with business logic
-	service := auth.NewService(
-		repo,
-		config.AppConfig.JWTSecret,
-		config.AppConfig.AccessTokenTTL,
-		config.AppConfig.RefreshTokenTTL,
-	)
+    // Wire up the repository data access layer with the active connection pool
+    repo := auth.NewRepository(dbPool)
 
-	// Initialize handler for HTTP requests
-	handler := auth.NewHandler(service)
+    // Inject required dependencies into the core authentication business logic
+    service := auth.NewService(repo, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 
-	// Register HTTP routes with the router
-	router := server.RegisterRoutes(handler)
+    // Map the core service layer to the HTTP transport handlers
+    handler := auth.NewHandler(service)
 
-	// Start the HTTP server
-	log.Printf("auth service running on port %s", config.AppConfig.Port)
-	if err := http.ListenAndServe(":"+config.AppConfig.Port, router); err != nil {
-		log.Fatalf("server failed: %v", err)
-	}
+    // Construct the strict routing tree and inject the JWT secret for middleware verification
+    router := server.RegisterRoutes(handler, cfg.JWTSecret)
+
+    // Configure the HTTP server with explicit timeouts to prevent resource exhaustion
+    srv := &http.Server{
+        Addr:         ":" + cfg.Port,
+        Handler:      router,
+        ReadTimeout:  15 * time.Second,
+        WriteTimeout: 15 * time.Second,
+        IdleTimeout:  60 * time.Second,
+    }
+
+    // Run the server in a separate goroutine to allow for non-blocking signal catching
+    go func() {
+        log.Info("Starting server", "port", cfg.Port, "env", cfg.Env)
+        if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+            log.Error("Server encountered a fatal error", "error", err)
+            os.Exit(1)
+        }
+    }()
+
+    // Listen for standard termination signals from container orchestrators like Docker
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    <-quit
+    log.Info("Shutting down server gracefully...")
+
+    // Provide a strict 10-second window for active network requests to finish completely
+    shutdownCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+    defer cancel()
+
+    // Execute the graceful shutdown and catch any dangling connection errors
+    if err := srv.Shutdown(shutdownCtx); err != nil {
+        log.Error("Server forced to shutdown abruptly", "error", err)
+        os.Exit(1)
+    }
+
+    log.Info("Server exited properly")
 }

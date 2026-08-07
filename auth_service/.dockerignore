@@ -1,18 +1,25 @@
+# Version control configurations
 .git
 .gitignore
 
-.vscode
-.idea
-
-tmp
-vendor
-
-README.md
-
+# Local environment variables and secrets
 .env
 .env.*
 
+# Editor and IDE workspace configurations
+.vscode
+.idea
+
+# Local build directories, temporary files, and binaries
+tmp
+vendor
+bin/
+auth_service
+
+# Docker configuration files
 Dockerfile*
 docker-compose*
 
+# Documentation and miscellaneous files
 docs/
+README.md
