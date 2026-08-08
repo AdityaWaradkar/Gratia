@@ -1,18 +1,34 @@
 package logger
 
 import (
-	"log"
-	"os"
+    "log/slog"
+    "os"
+    "strings"
 )
 
-// Logger is the shared service logger
-var Logger *log.Logger
+// New initializes and sets up a structured JSON logger for the service
+func New(serviceName string, logLevel string) *slog.Logger {
+    var level slog.Level
+    
+    switch strings.ToLower(logLevel) {
+    case "debug":
+        level = slog.LevelDebug
+    case "warn":
+        level = slog.LevelWarn
+    case "error":
+        level = slog.LevelError
+    default:
+        level = slog.LevelInfo
+    }
 
-// Init initializes the logger
-func Init() {
-	Logger = log.New(
-		os.Stdout,
-		"[USER_SERVICE] ",
-		log.LstdFlags|log.Lshortfile,
-	)
+    opts := &slog.HandlerOptions{
+        Level: level,
+    }
+
+    handler := slog.NewJSONHandler(os.Stdout, opts)
+    logger := slog.New(handler).With(slog.String("service", serviceName))
+    
+    slog.SetDefault(logger)
+
+    return logger
 }

@@ -1,79 +1,66 @@
 package middleware
 
 import (
-	"context"
-	"net/http"
+    "context"
+    "net/http"
 )
 
 type contextKey string
 
 const (
-	UserIDKey   contextKey = "user_id"
-	UserRoleKey contextKey = "user_role"
+    UserIDKey    contextKey = "user_id"
+    UserRoleKey  contextKey = "user_role"
 )
 
-
-// UserID returns authenticated user id
+// UserID extracts and returns the authenticated user id from the request context
 func UserID(ctx context.Context) string {
-	v, _ := ctx.Value(UserIDKey).(string)
-	return v
+    v, _ := ctx.Value(UserIDKey).(string)
+    return v
 }
 
-// UserRole returns authenticated user role
+// UserRole extracts and returns the authenticated user role from the request context
 func UserRole(ctx context.Context) string {
-	v, _ := ctx.Value(UserRoleKey).(string)
-	return v
+    v, _ := ctx.Value(UserRoleKey).(string)
+    return v
 }
 
-// RequireRole allows only a specific role
+// RequireRole enforces that the caller possesses a specific role
 func RequireRole(role string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			userRole := UserRole(r.Context())
-
-			if userRole == "" {
-				writeError(w, http.StatusUnauthorized, "unauthorized")
-				return
-			}
-
-			if userRole != role {
-				writeError(w, http.StatusForbidden, "forbidden")
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            userRole := UserRole(r.Context())
+            if userRole == "" {
+                writeError(w, http.StatusUnauthorized, "unauthorized")
+                return
+            }
+            if userRole != role {
+                writeError(w, http.StatusForbidden, "forbidden")
+                return
+            }
+            next.ServeHTTP(w, r)
+        })
+    }
 }
 
-// RequireAnyRole allows any of given roles
+// RequireAnyRole enforces that the caller possesses at least one of the permitted roles
 func RequireAnyRole(roles ...string) func(http.Handler) http.Handler {
+    roleSet := make(map[string]struct{})
+    for _, r := range roles {
+        roleSet[r] = struct{}{}
+    }
 
-	roleSet := make(map[string]struct{})
-
-	for _, r := range roles {
-		roleSet[r] = struct{}{}
-	}
-
-	return func(next http.Handler) http.Handler {
-
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			userRole := UserRole(r.Context())
-
-			if userRole == "" {
-				writeError(w, http.StatusUnauthorized, "unauthorized")
-				return
-			}
-
-			if _, ok := roleSet[userRole]; !ok {
-				writeError(w, http.StatusForbidden, "forbidden")
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            userRole := UserRole(r.Context())
+            if userRole == "" {
+                writeError(w, http.StatusUnauthorized, "unauthorized")
+                return
+            }
+            if _, ok := roleSet[userRole]; !ok {
+                writeError(w, http.StatusForbidden, "forbidden")
+                return
+            }
+            next.ServeHTTP(w, r)
+        })
+    }
 }

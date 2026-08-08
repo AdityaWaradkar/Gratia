@@ -1,27 +1,27 @@
 package db
 
 import (
-	"context"
-	"log"
-	"time"
+    "context"
+    "fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+    "github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Connect creates and verifies a database connection pool
-func Connect(databaseURL string) *pgxpool.Pool {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+// Connect initializes and returns a highly concurrent PostgreSQL connection pool
+func Connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
+    config, err := pgxpool.ParseConfig(databaseURL)
+    if err != nil {
+        return nil, fmt.Errorf("failed to parse database configuration: %w", err)
+    }
 
-	pool, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		log.Fatalf("failed to create db pool: %v", err)
-	}
+    pool, err := pgxpool.NewWithConfig(ctx, config)
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect to database: %w", err)
+    }
 
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("failed to connect to db: %v", err)
-	}
+    if err := pool.Ping(ctx); err != nil {
+        return nil, fmt.Errorf("database ping failed: %w", err)
+    }
 
-	log.Println("database connected successfully")
-	return pool
+    return pool, nil
 }

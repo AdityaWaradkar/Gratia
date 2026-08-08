@@ -1,80 +1,82 @@
 package main
 
 import (
-	"context"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+    "context"
+    "errors"
+    "log/slog"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
 
-	"github.com/adityawaradkar/gratia/user_service/internal/config"
-	"github.com/adityawaradkar/gratia/user_service/internal/db"
+    "github.com/adityawaradkar/gratia/user_service/internal/config"
+    "github.com/adityawaradkar/gratia/user_service/internal/db"
 	"github.com/adityawaradkar/gratia/user_service/internal/logger"
-	"github.com/adityawaradkar/gratia/user_service/internal/server"
-	"github.com/adityawaradkar/gratia/user_service/internal/user"
+    "github.com/adityawaradkar/gratia/user_service/internal/server"
+    "github.com/adityawaradkar/gratia/user_service/internal/user"
 )
 
 func main() {
-	// Load configuration from environment variables
-	config.Load()
+    // Load configuration via dependency-friendly loading function
+    cfg := config.Load()
 
-	// Initialize logger
-	logger.Init()
+    // Initialize structured JSON logger
+    log := logger.New("user_service", cfg.LogLevel)
 
-	// Connect to the database
-	database := db.Connect(config.AppConfig.DatabaseURL)
-	defer database.Close()
+    // Establish context for startup tasks
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
 
-	// Initialize repository, service, and handler
-	repo := user.NewRepository(database)
-	service := user.NewService(repo)
-	handler := user.NewHandler(service)
+    // Connect to the PostgreSQL connection pool securely
+    database, err := db.Connect(ctx, cfg.DatabaseURL)
+    if err != nil {
+        log.Error("failed to establish database connection", slog.String("error", err.Error()))
+        os.Exit(1)
+    }
+    defer database.Close()
 
-	// Register HTTP routes
-	router := server.RegisterRoutes(handler)
+    // Initialize clean architectural layers (Repository -> Service -> Handler)
+    repo := user.NewRepository(database)
+    service := user.NewService(repo)
+    handler := user.NewHandler(service)
 
-	// Configure the HTTP server
-	srv := &http.Server{
-		Addr:              ":" + config.AppConfig.Port,
-		Handler:           router,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+    // Register HTTP routes, passing the required JWT secret for middleware verification
+    router := server.RegisterRoutes(handler, cfg.JWTSecret)
 
-	// Start the HTTP server in a goroutine
-	go func() {
-		logger.Logger.Println(
-			"user service running on port",
-			config.AppConfig.Port,
-		)
+    // Configure the production HTTP server
+    srv := &http.Server{
+        Addr:              ":" + cfg.Port,
+        Handler:           router,
+        ReadHeaderTimeout: 5 * time.Second,
+        ReadTimeout:       15 * time.Second,
+        WriteTimeout:      15 * time.Second,
+        IdleTimeout:       60 * time.Second,
+    }
 
-		if err := srv.ListenAndServe(); err != nil &&
-			err != http.ErrServerClosed {
-			logger.Logger.Fatalf("server failed: %v", err)
-		}
-	}()
+    // Start the HTTP server asynchronously
+    go func() {
+        log.Info("user service started successfully", slog.String("port", cfg.Port), slog.String("env", cfg.Env))
+        if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+            log.Error("http server failed unexpectedly", slog.String("error", err.Error()))
+            os.Exit(1)
+        }
+    }()
 
-	// Wait for interrupt signal for graceful shutdown
-	stop := make(chan os.Signal, 1)
-	signal.Notify(
-		stop,
-		os.Interrupt,
-		syscall.SIGTERM,
-	)
-	<-stop
+    // Listen for OS interrupt signals for graceful shutdown execution
+    stop := make(chan os.Signal, 1)
+    signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+    <-stop
 
-	logger.Logger.Println("shutting down user service...")
+    log.Info("initiating graceful shutdown sequence...")
 
-	// Gracefully shutdown the server with timeout
-	ctx, cancel := context.WithTimeout(
-		context.Background(),
-		10*time.Second,
-	)
-	defer cancel()
+    // Allow active requests 10 seconds to finish processing before forcing termination
+    shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer shutdownCancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.Logger.Fatalf("graceful shutdown failed: %v", err)
-	}
+    if err := srv.Shutdown(shutdownCtx); err != nil {
+        log.Error("forced server shutdown encountered an error", slog.String("error", err.Error()))
+    }
 
-	logger.Logger.Println("user service stopped")
+    log.Info("user service stopped cleanly")
 }

@@ -1,20 +1,19 @@
 package middleware
 
 import (
-	"encoding/json"
-	"net/http"
+    "encoding/json"
+    "net/http"
 )
 
 type errorResponse struct {
-	Message string `json:"message"`
+    Message string `json:"message"`
 }
 
-// writeError writes a JSON error response
+// writeError writes a structured JSON error response
 func writeError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	_ = json.NewEncoder(w).Encode(errorResponse{
-		Message: message,
-	})
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(status)
+    _ = json.NewEncoder(w).Encode(errorResponse{
+        Message: message,
+    })
 }
