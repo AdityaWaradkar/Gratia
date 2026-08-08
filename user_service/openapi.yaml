@@ -45,7 +45,6 @@ security:
   - BearerAuth: []
 
 paths:
-
   /donors/profile:
     post:
       summary: Create donor profile
@@ -369,13 +368,19 @@ paths:
         '200':
           description: Service healthy
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
-                example: user service healthy
+                type: object
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  service:
+                    type: string
+                    example: user_service
 
 components:
-
   securitySchemes:
     BearerAuth:
       type: http
@@ -383,7 +388,6 @@ components:
       bearerFormat: JWT
 
   schemas:
-
     CreateDonorProfileRequest:
       type: object
       additionalProperties: false
