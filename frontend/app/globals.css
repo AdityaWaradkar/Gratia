@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme {
+ @theme {
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));

@@ -38,6 +38,17 @@ export function LoginForm() {
     },
   });
 
+  // Role mapping function
+  const getRoleRoute = (role: string): string => {
+    const roleMap: Record<string, string> = {
+      "DONOR": "donor",
+      "NGO": "ngo",
+      "ADMIN": "admin",
+      "USER": "donor", // Fallback for USER role
+    };
+    return roleMap[role] || "donor";
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
@@ -55,11 +66,14 @@ export function LoginForm() {
         // Decode token to get role for redirect
         try {
           const payload = JSON.parse(atob(accessToken.split(".")[1]));
-          const role = payload.role?.toLowerCase() || "donor";
-          localStorage.setItem("userRole", role);
+          const role = payload.role || "USER";
+          
+          // Convert to lowercase route
+          const route = getRoleRoute(role);
+          localStorage.setItem("userRole", route);
 
           toast.success("Login successful!");
-          router.push(`/${role}`);
+          router.push(`/${route}`);
         } catch (_error) {
           toast.success("Login successful!");
           router.push("/donor");

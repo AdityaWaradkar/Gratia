@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// Role mapping function
+const getRoleRoute = (role: string): string => {
+  const roleMap: Record<string, string> = {
+    "DONOR": "donor",
+    "NGO": "ngo",
+    "ADMIN": "admin",
+    "USER": "donor",
+  };
+  return roleMap[role] || "donor";
+};
+
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("accessToken")?.value;
   const { pathname } = request.nextUrl;
@@ -20,15 +31,12 @@ export function middleware(request: NextRequest) {
 
   // If token exists and trying to access auth pages, redirect to dashboard
   if (token && isPublicRoute && pathname !== "/") {
-    // Check role from token and redirect accordingly
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
-      const role = payload.role?.toLowerCase() || "donor";
-      const validRoles = ["donor", "ngo", "admin"];
-      const redirectPath = validRoles.includes(role) ? `/${role}` : "/donor";
-      return NextResponse.redirect(new URL(redirectPath, request.url));
+      const role = payload.role || "USER";
+      const route = getRoleRoute(role);
+      return NextResponse.redirect(new URL(`/${route}`, request.url));
     } catch (_error) {
-      // Invalid token - redirect to login
       const response = NextResponse.redirect(new URL("/login", request.url));
       response.cookies.delete("accessToken");
       response.cookies.delete("userRole");
