@@ -46,10 +46,13 @@ func main() {
     // Construct the strict routing tree and inject the JWT secret for middleware verification
     router := server.RegisterRoutes(handler, cfg.JWTSecret)
 
+    // Apply CORS middleware
+    handlerWithCORS := corsMiddleware(router)
+
     // Configure the HTTP server with explicit timeouts to prevent resource exhaustion
     srv := &http.Server{
         Addr:         ":" + cfg.Port,
-        Handler:      router,
+        Handler:      handlerWithCORS,
         ReadTimeout:  15 * time.Second,
         WriteTimeout: 15 * time.Second,
         IdleTimeout:  60 * time.Second,
@@ -81,4 +84,31 @@ func main() {
     }
 
     log.Info("Server exited properly")
+}
+
+// corsMiddleware handles CORS headers for all responses
+func corsMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Allow specific frontend origin
+        allowedOrigin := "https://gratia-eta.vercel.app"
+        
+        // Allow localhost for development
+        if r.Header.Get("Origin") == "http://localhost:3000" {
+            allowedOrigin = "http://localhost:3000"
+        }
+
+        w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        w.Header().Set("Access-Control-Allow-Credentials", "true")
+        w.Header().Set("Access-Control-Max-Age", "86400")
+
+        // Handle preflight requests
+        if r.Method == "OPTIONS" {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+
+        next.ServeHTTP(w, r)
+    })
 }
