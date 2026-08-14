@@ -1,106 +1,87 @@
 package food
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"net/http"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "time"
 )
 
-// UserClient defines the interface for user service operations
+// UserClient defines the contract for internal HTTP communication with the User Service
 type UserClient interface {
-	IsDonor(ctx context.Context, userID string) (bool, error)
-	IsVerifiedNGO(ctx context.Context, userID string) (bool, error)
+    IsDonor(ctx context.Context, userID string) (bool, error)
+    IsVerifiedNGO(ctx context.Context, userID string) (bool, error)
 }
 
 type userClient struct {
-	baseURL string
-	client  *http.Client
+    baseURL string
+    client  *http.Client
 }
 
-// NewUserClient creates a new user service client instance
+// NewUserClient initializes an HTTP client specifically tuned for internal microservice calls
 func NewUserClient(baseURL string) UserClient {
-	return &userClient{
-		baseURL: baseURL,
-		client: &http.Client{
-			Timeout: 5 * time.Second,
-		},
-	}
+    return &userClient{
+        baseURL: baseURL,
+        client: &http.Client{
+            Timeout: 5 * time.Second, // Strict timeout prevents cascading failures if User Service hangs
+        },
+    }
 }
 
-// IsDonor checks whether a user has a donor profile
-func (u *userClient) IsDonor(
-	ctx context.Context,
-	userID string,
-) (bool, error) {
+// IsDonor checks whether a user has provisioned a valid donor profile
+func (u *userClient) IsDonor(ctx context.Context, userID string) (bool, error) {
+    url := fmt.Sprintf("%s/internal/users/%s/donor", u.baseURL, userID)
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    if err != nil {
+        return false, fmt.Errorf("failed to create request: %w", err)
+    }
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		u.baseURL+"/internal/users/"+userID+"/donor",
-		nil,
-	)
-	if err != nil {
-		return false, err
-	}
+    resp, err := u.client.Do(req)
+    if err != nil {
+        return false, fmt.Errorf("user service network request failed: %w", err)
+    }
+    defer resp.Body.Close()
 
-	resp, err := u.client.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-
-	case http.StatusOK:
-		return true, nil
-
-	case http.StatusNotFound:
-		return false, nil
-
-	default:
-		return false, errors.New("user service returned unexpected status")
-	}
+    switch resp.StatusCode {
+    case http.StatusOK:
+        return true, nil
+    case http.StatusNotFound:
+        return false, nil
+    default:
+        return false, fmt.Errorf("user service returned unexpected status: %d", resp.StatusCode)
+    }
 }
 
-// IsVerifiedNGO checks if a user has a verified NGO profile
-func (u *userClient) IsVerifiedNGO(
-	ctx context.Context,
-	userID string,
-) (bool, error) {
+// IsVerifiedNGO checks if a user has an NGO profile that has been administratively verified
+func (u *userClient) IsVerifiedNGO(ctx context.Context, userID string) (bool, error) {
+    url := fmt.Sprintf("%s/internal/users/%s/ngo", u.baseURL, userID)
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+    if err != nil {
+        return false, fmt.Errorf("failed to create request: %w", err)
+    }
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		u.baseURL+"/internal/users/"+userID+"/ngo",
-		nil,
-	)
-	if err != nil {
-		return false, err
-	}
+    resp, err := u.client.Do(req)
+    if err != nil {
+        return false, fmt.Errorf("user service network request failed: %w", err)
+    }
+    defer resp.Body.Close()
 
-	resp, err := u.client.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
+    if resp.StatusCode == http.StatusNotFound {
+        return false, nil
+    }
 
-	if resp.StatusCode == http.StatusNotFound {
-		return false, nil
-	}
+    if resp.StatusCode != http.StatusOK {
+        return false, fmt.Errorf("user service returned unexpected status: %d", resp.StatusCode)
+    }
 
-	if resp.StatusCode != http.StatusOK {
-		return false, errors.New("user service returned unexpected status")
-	}
+    var result struct {
+        Verified bool `json:"verified"`
+    }
 
-	var result struct {
-		Verified bool `json:"verified"`
-	}
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return false, fmt.Errorf("failed to decode user service response: %w", err)
+    }
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return false, err
-	}
-
-	return result.Verified, nil
+    return result.Verified, nil
 }

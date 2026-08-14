@@ -1,8 +1,10 @@
 package user
 
+type Role string
+
 const (
-    RoleDonor = "DONOR"
-    RoleNGO   = "NGO"
-    RoleAdmin = "ADMIN"
-    RoleUser  = "USER"
+	RoleDonor Role = "DONOR"
+	RoleNGO   Role = "NGO"
+	RoleAdmin Role = "ADMIN"
+	RoleUser  Role = "USER"
 )
