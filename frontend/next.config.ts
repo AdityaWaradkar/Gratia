@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_FOOD_URL: process.env.NEXT_PUBLIC_FOOD_URL || "http://localhost:8082",
     NEXT_PUBLIC_CLAIM_URL: process.env.NEXT_PUBLIC_CLAIM_URL || "http://localhost:8083",
   },
+  // Ensure output directory is correct
+  distDir: ".next",
 };
 
 export default nextConfig;
