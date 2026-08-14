@@ -1,4 +1,4 @@
-# Gratia
+# Gratia: A Microservices-Based Leftover Food Redistribution Platform
 
 A full-stack food rescue platform connecting donors with NGOs to reduce food waste and fight hunger.
 
