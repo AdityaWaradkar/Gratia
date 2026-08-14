@@ -1,35 +1,36 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { authClient } from "@/lib/api/client";
 
 const registerSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string().min(6, 'Please confirm your password'),
-  role: z.enum(['user', 'admin']),
+  email: z.string().email("Please enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Please confirm your password"),
+  role: z.enum(["DONOR", "NGO", "USER"]),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ['confirmPassword'],
-})
+  path: ["confirmPassword"],
+});
 
-type RegisterFormData = z.infer<typeof registerSchema>
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 export function RegisterForm() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     register,
@@ -38,22 +39,32 @@ export function RegisterForm() {
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      email: '',
-      password: '',
-      confirmPassword: '',
-      role: 'user',
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: "DONOR",
     },
-  })
+  });
 
-  const onSubmit = (data: RegisterFormData) => {
-    setIsLoading(true)
-    // Mock registration - replace with actual API call
-    setTimeout(() => {
-      toast.success('Registration successful! Please login.')
-      router.push('/login')
-      setIsLoading(false)
-    }, 1000)
-  }
+  const onSubmit = async (data: RegisterFormData) => {
+    setIsLoading(true);
+    try {
+      const response = await authClient.post("/register", {
+        email: data.email,
+        password: data.password,
+        role: data.role,
+      });
+
+      if (response.status === 201) {
+        toast.success("Registration successful! Please login.");
+        router.push("/login");
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Registration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Card className="w-full max-w-md">
@@ -71,8 +82,8 @@ export function RegisterForm() {
               id="email"
               type="email"
               placeholder="you@example.com"
-              {...register('email')}
-              className={errors.email ? 'border-red-500' : ''}
+              {...register("email")}
+              className={errors.email ? "border-red-500" : ""}
             />
             {errors.email && (
               <p className="text-sm text-red-500">{errors.email.message}</p>
@@ -83,10 +94,10 @@ export function RegisterForm() {
             <div className="relative">
               <Input
                 id="password"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                {...register('password')}
-                className={errors.password ? 'border-red-500' : ''}
+                {...register("password")}
+                className={errors.password ? "border-red-500" : ""}
               />
               <button
                 type="button"
@@ -105,10 +116,10 @@ export function RegisterForm() {
             <div className="relative">
               <Input
                 id="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
+                type={showConfirmPassword ? "text" : "password"}
                 placeholder="••••••••"
-                {...register('confirmPassword')}
-                className={errors.confirmPassword ? 'border-red-500' : ''}
+                {...register("confirmPassword")}
+                className={errors.confirmPassword ? "border-red-500" : ""}
               />
               <button
                 type="button"
@@ -126,11 +137,12 @@ export function RegisterForm() {
             <Label htmlFor="role">I want to join as</Label>
             <select
               id="role"
-              {...register('role')}
+              {...register("role")}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <option value="user">Donor / NGO</option>
-              <option value="admin">Admin</option>
+              <option value="DONOR">Donor</option>
+              <option value="NGO">NGO</option>
+              <option value="USER">User</option>
             </select>
           </div>
         </CardContent>
@@ -142,11 +154,11 @@ export function RegisterForm() {
                 Creating account...
               </>
             ) : (
-              'Create Account'
+              "Create Account"
             )}
           </Button>
           <p className="text-sm text-center text-muted-foreground">
-            Already have an account?{' '}
+            Already have an account?{" "}
             <Link href="/login" className="text-primary hover:underline">
               Sign in
             </Link>
@@ -154,5 +166,5 @@ export function RegisterForm() {
         </CardFooter>
       </form>
     </Card>
-  )
+  );
 }

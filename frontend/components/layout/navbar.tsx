@@ -1,36 +1,66 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Bell, Search, User, Menu, X } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
-import { Sidebar } from './sidebar'
+import { useState, useEffect } from "react";
+import { Bell, Search, User, Menu, X } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { Sidebar } from "./sidebar";
+import { useRouter } from "next/navigation";
 
 interface NavbarProps {
-  role?: 'user' | 'admin'
+  role?: "donor" | "ngo" | "admin" | "user";
 }
 
-export function Navbar({ role = 'user' }: NavbarProps) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isScrolled, setIsScrolled] = useState(false)
+export function Navbar({ role = "user" }: NavbarProps) {
+  const router = useRouter();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10)
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    // Get user email from token
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        setUserEmail(payload.email || "");
+      } catch (_error) {
+        // Invalid token
+      }
     }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userRole");
+    router.push("/login");
+  };
+
+  const getUserInitials = () => {
+    if (userEmail) {
+      return userEmail.charAt(0).toUpperCase();
+    }
+    return "U";
+  };
 
   return (
     <>
       <header
         className={cn(
-          'sticky top-0 z-40 bg-white/80 backdrop-blur-sm transition-shadow',
-          isScrolled && 'shadow-sm'
+          "sticky top-0 z-40 bg-white/80 backdrop-blur-sm transition-shadow",
+          isScrolled && "shadow-sm"
         )}
       >
         <div className="flex items-center justify-between px-6 py-4">
@@ -63,14 +93,22 @@ export function Navbar({ role = 'user' }: NavbarProps) {
               <Avatar className="h-8 w-8">
                 <AvatarImage src="/images/avatar.jpg" />
                 <AvatarFallback className="bg-green-100 text-green-700">
-                  <User className="h-4 w-4" />
+                  {getUserInitials()}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:block">
-                <p className="text-sm font-medium">John Doe</p>
+                <p className="text-sm font-medium">{userEmail || "User"}</p>
                 <p className="text-xs text-gray-500 capitalize">{role}</p>
               </div>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-sm text-gray-600 hover:text-red-600"
+              onClick={handleLogout}
+            >
+              Logout
+            </Button>
           </div>
         </div>
       </header>
@@ -78,8 +116,8 @@ export function Navbar({ role = 'user' }: NavbarProps) {
       {/* Mobile Sidebar */}
       <div
         className={cn(
-          'fixed inset-0 z-50 lg:hidden transition-all duration-300',
-          isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          "fixed inset-0 z-50 lg:hidden transition-all duration-300",
+          isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
       >
         <div
@@ -88,13 +126,13 @@ export function Navbar({ role = 'user' }: NavbarProps) {
         />
         <div
           className={cn(
-            'absolute left-0 top-0 h-full w-64 bg-white transition-transform duration-300',
-            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            "absolute left-0 top-0 h-full w-64 bg-white transition-transform duration-300",
+            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
           <Sidebar role={role} />
         </div>
       </div>
     </>
-  )
+  );
 }

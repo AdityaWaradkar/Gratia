@@ -1,5 +1,5 @@
-import { LoginForm } from '@/components/forms/login-form'
-import { Leaf } from 'lucide-react'
+import { LoginForm } from "@/components/forms/login-form";
+import { Leaf } from "lucide-react";
 
 export default function LoginPage() {
   return (
@@ -12,10 +12,10 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-green-700">Gratia</h1>
-          <p className="text-gray-600">Food Management System</p>
+          <p className="text-gray-600 mt-1">Food Management System</p>
         </div>
         <LoginForm />
       </div>
     </div>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import { ForgotPasswordForm } from '@/components/forms/forgot-password-form'
-import { Leaf } from 'lucide-react'
+import { ForgotPasswordForm } from "@/components/forms/forgot-password-form";
+import { Leaf } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   return (
@@ -12,10 +12,10 @@ export default function ForgotPasswordPage() {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-green-700">Gratia</h1>
-          <p className="text-gray-600">Reset your password</p>
+          <p className="text-gray-600 mt-1">Reset your password</p>
         </div>
         <ForgotPasswordForm />
       </div>
     </div>
-  )
+  );
 }

@@ -1,29 +1,30 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { authClient } from "@/lib/api/client";
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-})
+  email: z.string().email("Please enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
 
-type LoginFormData = z.infer<typeof loginSchema>
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -32,22 +33,44 @@ export function LoginForm() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: '',
-      password: '',
+      email: "",
+      password: "",
     },
-  })
+  });
 
-  const onSubmit = (data: LoginFormData) => {
-    setIsLoading(true)
-    // Mock login - replace with actual API call
-    setTimeout(() => {
-      localStorage.setItem('accessToken', 'mock-token')
-      localStorage.setItem('refreshToken', 'mock-refresh')
-      toast.success('Login successful!')
-      router.push('/donor')
-      setIsLoading(false)
-    }, 1000)
-  }
+  const onSubmit = async (data: LoginFormData) => {
+    setIsLoading(true);
+    try {
+      const response = await authClient.post("/login", {
+        email: data.email,
+        password: data.password,
+      });
+
+      if (response.status === 200) {
+        const { accessToken, refreshToken } = response.data;
+
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
+
+        // Decode token to get role for redirect
+        try {
+          const payload = JSON.parse(atob(accessToken.split(".")[1]));
+          const role = payload.role?.toLowerCase() || "donor";
+          localStorage.setItem("userRole", role);
+
+          toast.success("Login successful!");
+          router.push(`/${role}`);
+        } catch (_error) {
+          toast.success("Login successful!");
+          router.push("/donor");
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Invalid email or password");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Card className="w-full max-w-md">
@@ -65,8 +88,8 @@ export function LoginForm() {
               id="email"
               type="email"
               placeholder="you@example.com"
-              {...register('email')}
-              className={errors.email ? 'border-red-500' : ''}
+              {...register("email")}
+              className={errors.email ? "border-red-500" : ""}
             />
             {errors.email && (
               <p className="text-sm text-red-500">{errors.email.message}</p>
@@ -77,10 +100,10 @@ export function LoginForm() {
             <div className="relative">
               <Input
                 id="password"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                {...register('password')}
-                className={errors.password ? 'border-red-500' : ''}
+                {...register("password")}
+                className={errors.password ? "border-red-500" : ""}
               />
               <button
                 type="button"
@@ -111,11 +134,11 @@ export function LoginForm() {
                 Please wait...
               </>
             ) : (
-              'Sign In'
+              "Sign In"
             )}
           </Button>
           <p className="text-sm text-center text-muted-foreground">
-            Don't have an account?{' '}
+            Don't have an account?{" "}
             <Link href="/register" className="text-primary hover:underline">
               Sign up
             </Link>
@@ -123,5 +146,5 @@ export function LoginForm() {
         </CardFooter>
       </form>
     </Card>
-  )
+  );
 }

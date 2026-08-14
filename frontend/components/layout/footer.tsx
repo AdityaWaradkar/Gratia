@@ -1,5 +1,5 @@
-import Link from 'next/link'
-import { Leaf } from 'lucide-react'
+import Link from "next/link";
+import { Leaf } from "lucide-react";
 
 export function Footer() {
   return (
@@ -9,7 +9,9 @@ export function Footer() {
           <div className="flex items-center gap-2">
             <Leaf className="h-5 w-5 text-green-600" />
             <span className="font-semibold text-green-700">Gratia</span>
-            <span className="text-sm text-gray-500">© 2026</span>
+            <span className="text-sm text-gray-500">
+              © {new Date().getFullYear()}
+            </span>
           </div>
           <div className="flex gap-6 text-sm text-gray-600">
             <Link href="/about" className="hover:text-green-600 transition">
@@ -28,5 +30,5 @@ export function Footer() {
         </div>
       </div>
     </footer>
-  )
+  );
 }

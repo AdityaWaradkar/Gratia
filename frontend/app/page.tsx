@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Leaf, Users, Heart, Clock } from 'lucide-react'
-import { motion } from 'framer-motion'
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Leaf, Users, Heart, Clock } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function Home() {
   return (
@@ -84,7 +84,7 @@ export default function Home() {
           How Gratia Works
         </h2>
         <div className="grid md:grid-cols-3 gap-8">
-          <motion.div 
+          <motion.div
             whileHover={{ y: -5 }}
             className="text-center p-6 bg-white rounded-xl shadow-sm"
           >
@@ -94,7 +94,7 @@ export default function Home() {
             <h3 className="text-xl font-semibold mb-2">1. Register</h3>
             <p className="text-gray-600">Join as a donor, NGO, or admin</p>
           </motion.div>
-          <motion.div 
+          <motion.div
             whileHover={{ y: -5 }}
             className="text-center p-6 bg-white rounded-xl shadow-sm"
           >
@@ -104,7 +104,7 @@ export default function Home() {
             <h3 className="text-xl font-semibold mb-2">2. List Food</h3>
             <p className="text-gray-600">Donors list excess food items</p>
           </motion.div>
-          <motion.div 
+          <motion.div
             whileHover={{ y: -5 }}
             className="text-center p-6 bg-white rounded-xl shadow-sm"
           >
@@ -120,9 +120,9 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t bg-white">
         <div className="container mx-auto px-4 py-8 text-center text-gray-600">
-          <p>© 2026 Gratia. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Gratia. All rights reserved.</p>
         </div>
       </footer>
     </div>
-  )
+  );
 }

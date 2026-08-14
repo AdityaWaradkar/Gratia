@@ -1,26 +1,27 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import Link from 'next/link'
-import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, ArrowLeft } from 'lucide-react'
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import Link from "next/link";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { authClient } from "@/lib/api/client";
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-})
+  email: z.string().email("Please enter a valid email"),
+});
 
-type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>
+type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 export function ForgotPasswordForm() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSubmitted, setIsSubmitted] = useState(false)
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const {
     register,
@@ -28,21 +29,27 @@ export function ForgotPasswordForm() {
     formState: { errors },
   } = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
-  })
+  });
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      setIsSubmitted(true)
-      toast.success('Password reset email sent!')
+      const response = await authClient.post("/forgot-password", {
+        email: data.email,
+      });
+
+      if (response.status === 200) {
+        setIsSubmitted(true);
+        toast.success("Password reset email sent!");
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Something went wrong')
+      // Always show success message to prevent email enumeration
+      setIsSubmitted(true);
+      toast.success("If an account exists, a reset link was sent");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   if (isSubmitted) {
     return (
@@ -62,7 +69,7 @@ export function ForgotPasswordForm() {
           </Link>
         </CardFooter>
       </Card>
-    )
+    );
   }
 
   return (
@@ -81,8 +88,8 @@ export function ForgotPasswordForm() {
               id="email"
               type="email"
               placeholder="you@example.com"
-              {...register('email')}
-              className={errors.email ? 'border-red-500' : ''}
+              {...register("email")}
+              className={errors.email ? "border-red-500" : ""}
             />
             {errors.email && (
               <p className="text-sm text-red-500">{errors.email.message}</p>
@@ -97,7 +104,7 @@ export function ForgotPasswordForm() {
                 Sending...
               </>
             ) : (
-              'Send Reset Link'
+              "Send Reset Link"
             )}
           </Button>
           <Link href="/login" className="text-sm text-primary hover:underline">
@@ -106,5 +113,5 @@ export function ForgotPasswordForm() {
         </CardFooter>
       </form>
     </Card>
-  )
+  );
 }

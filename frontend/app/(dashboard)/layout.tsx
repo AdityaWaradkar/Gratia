@@ -1,43 +1,49 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Sidebar } from '@/components/layout/sidebar'
-import { Navbar } from '@/components/layout/navbar'
-import { Loader2 } from 'lucide-react'
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Sidebar } from "@/components/layout/sidebar";
+import { Navbar } from "@/components/layout/navbar";
+import { Loader2 } from "lucide-react";
+
+type UserRole = "donor" | "ngo" | "admin" | "user";
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(true)
-  const [userRole, setUserRole] = useState<'user' | 'admin'>('user')
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserRole>("user");
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
+    const token = localStorage.getItem("accessToken");
     if (!token) {
-      router.push('/login')
-      return
+      router.push("/login");
+      return;
     }
 
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      setUserRole(payload.role === 'admin' ? 'admin' : 'user')
-    } catch (error) {
-      console.error('Invalid token')
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const role = payload.role?.toLowerCase() || "user";
+      setUserRole(role);
+    } catch (_error) {
+      // Invalid token - redirect to login
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("userRole");
+      router.push("/login");
     }
 
-    setIsLoading(false)
-  }, [router])
+    setIsLoading(false);
+  }, [router]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-green-600" />
       </div>
-    )
+    );
   }
 
   return (
@@ -45,10 +51,8 @@ export default function DashboardLayout({
       <Sidebar role={userRole} />
       <div className="lg:pl-64">
         <Navbar role={userRole} />
-        <main className="p-6">
-          {children}
-        </main>
+        <main className="p-6">{children}</main>
       </div>
     </div>
-  )
+  );
 }

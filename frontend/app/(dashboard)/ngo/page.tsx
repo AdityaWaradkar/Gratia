@@ -1,24 +1,24 @@
-'use client'
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Clock, CheckCircle, Package, AlertCircle } from 'lucide-react'
-import Link from 'next/link'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Clock, CheckCircle, Package, AlertCircle } from "lucide-react";
+import Link from "next/link";
 
 export default function NGODashboard() {
   const stats = [
-    { label: 'Available Food', value: 24, icon: Package, color: 'bg-green-100 text-green-700' },
-    { label: 'Pending Claims', value: 8, icon: Clock, color: 'bg-yellow-100 text-yellow-700' },
-    { label: 'Delivered', value: 67, icon: CheckCircle, color: 'bg-blue-100 text-blue-700' },
-    { label: 'Cancelled', value: 2, icon: AlertCircle, color: 'bg-red-100 text-red-700' },
-  ]
+    { label: "Available Food", value: 24, icon: Package, color: "bg-green-100 text-green-700" },
+    { label: "Pending Claims", value: 8, icon: Clock, color: "bg-yellow-100 text-yellow-700" },
+    { label: "Delivered", value: 67, icon: CheckCircle, color: "bg-blue-100 text-blue-700" },
+    { label: "Cancelled", value: 2, icon: AlertCircle, color: "bg-red-100 text-red-700" },
+  ];
 
   const availableFood = [
-    { id: 1, title: 'Fresh Vegetables', donor: 'Green Harvest', quantity: 50, unit: 'kg', distance: '2.5 km' },
-    { id: 2, title: 'Bread Pastry', donor: 'Bakery House', quantity: 30, unit: 'pcs', distance: '5.1 km' },
-    { id: 3, title: 'Cooked Meals', donor: 'Taste of India', quantity: 20, unit: 'plates', distance: '3.8 km' },
-  ]
+    { id: 1, title: "Fresh Vegetables", donor: "Green Harvest", quantity: 50, unit: "kg", distance: "2.5 km" },
+    { id: 2, title: "Bread Pastry", donor: "Bakery House", quantity: 30, unit: "pcs", distance: "5.1 km" },
+    { id: 3, title: "Cooked Meals", donor: "Taste of India", quantity: 20, unit: "plates", distance: "3.8 km" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -37,7 +37,7 @@ export default function NGODashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => {
-          const Icon = stat.icon
+          const Icon = stat.icon;
           return (
             <Card key={stat.label}>
               <CardContent className="p-6">
@@ -52,7 +52,7 @@ export default function NGODashboard() {
                 </div>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
@@ -84,5 +84,5 @@ export default function NGODashboard() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
