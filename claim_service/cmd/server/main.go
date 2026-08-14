@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -9,80 +11,53 @@ import (
 	"time"
 
 	"github.com/adityawaradkar/gratia/claim_service/internal/claim"
-	"github.com/adityawaradkar/gratia/claim_service/internal/client"
 	"github.com/adityawaradkar/gratia/claim_service/internal/config"
 	"github.com/adityawaradkar/gratia/claim_service/internal/db"
 	"github.com/adityawaradkar/gratia/claim_service/internal/logger"
-	authmw "github.com/adityawaradkar/gratia/claim_service/internal/middleware"
 	"github.com/adityawaradkar/gratia/claim_service/internal/server"
 )
 
 func main() {
-	// Load configuration from environment variables
-	config.Load()
-	cfg := config.AppConfig
+	// Load configuration
+	cfg := config.Load()
 
-	// Initialize logger with configured log level
-	logr := logger.New(logger.Config{
-		Level: cfg.LogLevel,
-	})
+	// Initialize structured JSON logger
+	log := logger.New("claim_service", cfg.LogLevel)
 
-	logr.Info(
-		"starting claim service",
-		"env", cfg.Env,
-		"port", cfg.Port,
-	)
+	// Establish context for startup tasks
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	log.Info("starting claim service", slog.String("env", cfg.Env), slog.String("port", cfg.Port))
 
 	// Connect to the database
-	dbConn, err := db.New()
+	database, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
-		logr.Error(
-			"failed to connect to database",
-			"error", err,
-		)
+		log.Error("failed to connect to database", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	defer dbConn.Close()
+	defer database.Close()
 
 	// Initialize repository for claim database operations
-	repo := claim.NewClaimRepository(dbConn)
+	repo := claim.NewRepository(database)
 
 	// Initialize external service clients
-	userClient := client.NewUserClient(
-		cfg.UserServiceURL,
-	)
-	foodClient := client.NewFoodClient(
-		cfg.FoodServiceURL,
-	)
+	userClient := claim.NewUserClient(cfg.UserServiceURL)
+	foodClient := claim.NewFoodClient(cfg.FoodServiceURL)
 
 	// Initialize service layer with business logic
-	claimService := claim.NewService(
-		dbConn,
-		repo,
-		userClient,
-		foodClient,
-	)
+	claimService := claim.NewService(repo, userClient, foodClient)
 
 	// Initialize handler for HTTP requests
-	claimHandler := claim.NewHandler(
-		claimService,
-	)
+	claimHandler := claim.NewHandler(claimService)
 
-	// Initialize authentication middleware
-	authMiddleware := authmw.NewMiddleware(
-		cfg.JWTSecret,
-	)
-
-	// Initialize router with all routes and middleware
-	srv := server.NewServer(
-		claimHandler,
-		authMiddleware,
-	)
+	// Register routes with JWT authentication
+	router := server.RegisterRoutes(claimHandler, cfg.JWTSecret)
 
 	// Configure the HTTP server
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           srv.Handler(),
+		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
@@ -91,46 +66,28 @@ func main() {
 
 	// Start the HTTP server in a goroutine
 	go func() {
-		logr.Info(
-			"http server started",
-			"port", cfg.Port,
-		)
-
-		if err := httpServer.ListenAndServe(); err != nil &&
-			err != http.ErrServerClosed {
-			logr.Error(
-				"http server failed",
-				"error", err,
-			)
+		log.Info("http server started", slog.String("port", cfg.Port))
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("http server failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 	}()
 
 	// Wait for interrupt signal for graceful shutdown
 	quit := make(chan os.Signal, 1)
-	signal.Notify(
-		quit,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-	)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logr.Info("shutdown signal received")
+	log.Info("shutdown signal received")
 
 	// Gracefully shutdown the server with timeout
-	ctx, cancel := context.WithTimeout(
-		context.Background(),
-		10*time.Second,
-	)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
 
-	if err := httpServer.Shutdown(ctx); err != nil {
-		logr.Error(
-			"server shutdown failed",
-			"error", err,
-		)
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Error("server shutdown failed", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	logr.Info("server exited cleanly")
+	log.Info("server exited cleanly")
 }

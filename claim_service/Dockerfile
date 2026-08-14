@@ -3,8 +3,8 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-# Install CA certificates for secure connections
-RUN apk add --no-cache ca-certificates
+# Install CA certificates and timezone data for secure connections and accurate time handling
+RUN apk add --no-cache ca-certificates tzdata
 
 # Copy dependency files first to leverage Docker caching
 COPY go.mod go.sum ./
@@ -15,7 +15,7 @@ RUN go mod download
 # Copy the entire source code into the container
 COPY . .
 
-# Build the claim service binary with optimizations
+# Build the claim service binary with optimizations (statically linked, stripped)
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-w -s" -o claim_service ./cmd/server
 
@@ -24,8 +24,9 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Install CA certificates and wget for health checks
-RUN apk add --no-cache ca-certificates wget
+# Import necessary certificates and timezone data directly from the builder stage
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 # Create a non-root user for security
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -41,7 +42,7 @@ EXPOSE 8083
 
 # Health check endpoint to monitor service status
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --spider http://localhost:8083/health || exit 1
+  CMD wget --spider -q http://localhost:8083/health || exit 1
 
 # Start the claim service
 CMD ["./claim_service"]

@@ -6,43 +6,33 @@ import (
 	"strings"
 )
 
-// Config holds the logger configuration
-type Config struct {
-	Level string
-}
+// New initializes and sets up a structured JSON logger for the service
+func New(serviceName string, logLevel string) *slog.Logger {
+	var level slog.Level
 
-// New creates a new structured JSON logger instance
-func New(cfg Config) *slog.Logger {
+	switch strings.ToLower(logLevel) {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
 
-	handler := slog.NewJSONHandler(
-		os.Stdout,
-		&slog.HandlerOptions{
-			Level: parseLevel(cfg.Level),
-		},
-	)
+	opts := &slog.HandlerOptions{
+		Level: level,
+	}
 
-	logger := slog.New(handler)
+	// Output logs as JSON objects for easy parsing by monitoring tools
+	handler := slog.NewJSONHandler(os.Stdout, opts)
 
+	// Automatically inject the service name into every single log entry
+	logger := slog.New(handler).With(slog.String("service", serviceName))
+
+	// Override the global default logger to catch standard library outputs
 	slog.SetDefault(logger)
 
 	return logger
-}
-
-// parseLevel converts a string log level to slog.Level
-func parseLevel(level string) slog.Level {
-
-	switch strings.ToLower(level) {
-
-	case "debug":
-		return slog.LevelDebug
-
-	case "warn", "warning":
-		return slog.LevelWarn
-
-	case "error":
-		return slog.LevelError
-
-	default:
-		return slog.LevelInfo
-	}
 }

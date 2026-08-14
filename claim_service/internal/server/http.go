@@ -3,72 +3,37 @@ package server
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
-
 	"github.com/adityawaradkar/gratia/claim_service/internal/claim"
-	authmw "github.com/adityawaradkar/gratia/claim_service/internal/middleware"
+	"github.com/adityawaradkar/gratia/claim_service/internal/middleware"
 )
 
-// Server holds the HTTP router configuration
-type Server struct {
-	router *mux.Router
-}
-
-// NewServer creates a new server with all routes configured
-func NewServer(
-	claimHandler *claim.Handler,
-	authMiddleware *authmw.Middleware,
-) *Server {
-
-	r := mux.NewRouter()
+// RegisterRoutes wires all HTTP routes for the claim service using the JWT secret for token verification
+func RegisterRoutes(handler *claim.Handler, jwtSecret string) http.Handler {
+	mux := http.NewServeMux()
 
 	// Health check endpoint
-	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}).Methods(http.MethodGet)
+	mux.HandleFunc("GET /health", handler.HealthCheck)
 
 	// Protected routes requiring authentication
-	claimsRouter := r.PathPrefix("/claims").Subrouter()
-	claimsRouter.Use(authMiddleware.RequireAuth)
+	// Claim creation
+	mux.Handle("POST /claims", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.CreateClaim)))
 
-	// Claim creation endpoint
-	claimsRouter.HandleFunc(
-		"",
-		claimHandler.CreateClaim,
-	).Methods(http.MethodPost)
+	// Claim retrieval
+	mux.Handle("GET /claims/{id}", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.GetClaim)))
 
-	// Claim action endpoints
-	claimsRouter.HandleFunc(
-		"/{id}/approve",
-		claimHandler.ApproveClaim,
-	).Methods(http.MethodPost)
+	// Claim actions (approve, reject, cancel, pickup, deliver)
+	mux.Handle("POST /claims/{id}/approve", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.ApproveClaim)))
+	mux.Handle("POST /claims/{id}/reject", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.RejectClaim)))
+	mux.Handle("POST /claims/{id}/cancel", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.CancelClaim)))
+	mux.Handle("POST /claims/{id}/pickup", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.MarkPickedUp)))
+	mux.Handle("POST /claims/{id}/deliver", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.MarkDelivered)))
 
-	claimsRouter.HandleFunc(
-		"/{id}/reject",
-		claimHandler.RejectClaim,
-	).Methods(http.MethodPost)
+	// Get claims by user role (NGO or Donor)
+	mux.Handle("GET /claims/ngo", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.GetClaimsByNGO)))
+	mux.Handle("GET /claims/donor", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.GetClaimsByDonor)))
 
-	claimsRouter.HandleFunc(
-		"/{id}/cancel",
-		claimHandler.CancelClaim,
-	).Methods(http.MethodPost)
+	// Get claims by food listing
+	mux.Handle("GET /foods/{foodId}/claims", middleware.Auth(jwtSecret)(http.HandlerFunc(handler.GetClaimsByFood)))
 
-	claimsRouter.HandleFunc(
-		"/{id}/pickup",
-		claimHandler.MarkPickedUp,
-	).Methods(http.MethodPost)
-
-	claimsRouter.HandleFunc(
-		"/{id}/deliver",
-		claimHandler.MarkDelivered,
-	).Methods(http.MethodPost)
-
-	return &Server{
-		router: r,
-	}
-}
-
-// Handler returns the HTTP handler for the server
-func (s *Server) Handler() http.Handler {
-	return s.router
+	return mux
 }

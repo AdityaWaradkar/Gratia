@@ -3,11 +3,9 @@ package claim
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 )
 
 // Domain errors for claim operations
@@ -20,36 +18,16 @@ var (
 	ErrSelfClaim         = errors.New("ngo cannot claim its own food listing")
 )
 
-// UserClient defines the interface for user service operations
-type UserClient interface {
-	IsNGOVerified(ctx context.Context, userID string) (bool, error)
-}
-
-// FoodClient defines the interface for food service operations
-type FoodClient interface {
-	GetFoodForClaim(
-		ctx context.Context,
-		foodListingID string,
-	) (donorUserID string, status string, err error)
-}
-
 // Service handles business logic for claim operations
 type Service struct {
-	db         *sqlx.DB
-	repo       ClaimRepository
-	userClient UserClient
-	foodClient FoodClient
+	repo       Repository
+	userClient *UserClient
+	foodClient *FoodClient
 }
 
 // NewService creates a new claim service instance
-func NewService(
-	db *sqlx.DB,
-	repo ClaimRepository,
-	userClient UserClient,
-	foodClient FoodClient,
-) *Service {
+func NewService(repo Repository, userClient *UserClient, foodClient *FoodClient) *Service {
 	return &Service{
-		db:         db,
 		repo:       repo,
 		userClient: userClient,
 		foodClient: foodClient,
@@ -57,47 +35,42 @@ func NewService(
 }
 
 // CreateClaim creates a new claim for a food listing
-func (s *Service) CreateClaim(
-	ctx context.Context,
-	foodListingID string,
-	ngoUserID string,
-) (*Claim, error) {
-
-	verified, err := s.userClient.IsNGOVerified(ctx, ngoUserID)
+func (s *Service) CreateClaim(ctx context.Context, foodListingID string, ngoUserID string) (*Claim, error) {
+	// Validate NGO is verified
+	verified, err := s.userClient.IsVerifiedNGO(ctx, ngoUserID)
 	if err != nil {
 		return nil, err
 	}
-
 	if !verified {
 		return nil, ErrNGONotVerified
 	}
 
-	donorUserID, foodStatus, err := s.foodClient.GetFoodForClaim(
-		ctx,
-		foodListingID,
-	)
+	// Get food listing details
+	donorUserID, foodStatus, err := s.foodClient.GetFoodForClaim(ctx, foodListingID)
 	if err != nil {
 		return nil, err
 	}
 
-	if foodStatus != "OPEN" {
+	// Validate food listing is available
+	if foodStatus != "AVAILABLE" {
 		return nil, ErrFoodNotOpen
 	}
 
+	// Prevent self-claiming
 	if donorUserID == ngoUserID {
 		return nil, ErrSelfClaim
 	}
 
-	tx, err := s.db.BeginTxx(ctx, nil)
-	if err != nil {
+	// Check for existing active claim
+	existing, err := s.repo.GetActiveByFoodID(ctx, foodListingID)
+	if err != nil && !errors.Is(err, ErrClaimNotFound) {
 		return nil, err
 	}
+	if existing != nil {
+		return nil, ErrActiveClaimExists
+	}
 
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	now := time.Now().UTC()
+	now := time.Now()
 
 	claim := &Claim{
 		ID:            uuid.NewString(),
@@ -109,14 +82,7 @@ func (s *Service) CreateClaim(
 		UpdatedAt:     now,
 	}
 
-	if err := s.repo.Create(ctx, tx, claim); err != nil {
-		if isUniqueViolation(err) {
-			return nil, ErrActiveClaimExists
-		}
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
+	if err := s.repo.Create(ctx, claim); err != nil {
 		return nil, err
 	}
 
@@ -124,103 +90,33 @@ func (s *Service) CreateClaim(
 }
 
 // ApproveClaim approves a claim by the donor
-func (s *Service) ApproveClaim(
-	ctx context.Context,
-	claimID string,
-	donorUserID string,
-) error {
-	return s.updateStatus(
-		ctx,
-		claimID,
-		donorUserID,
-		ActorDonor,
-		ClaimStatusAccepted,
-	)
+func (s *Service) ApproveClaim(ctx context.Context, claimID string, donorUserID string) error {
+	return s.updateStatus(ctx, claimID, donorUserID, ActorDonor, ClaimStatusAccepted)
 }
 
 // RejectClaim rejects a claim by the donor
-func (s *Service) RejectClaim(
-	ctx context.Context,
-	claimID string,
-	donorUserID string,
-) error {
-	return s.updateStatus(
-		ctx,
-		claimID,
-		donorUserID,
-		ActorDonor,
-		ClaimStatusRejected,
-	)
+func (s *Service) RejectClaim(ctx context.Context, claimID string, donorUserID string) error {
+	return s.updateStatus(ctx, claimID, donorUserID, ActorDonor, ClaimStatusRejected)
 }
 
 // CancelByNGO cancels a claim by the NGO
-func (s *Service) CancelByNGO(
-	ctx context.Context,
-	claimID string,
-	ngoUserID string,
-) error {
-	return s.updateStatus(
-		ctx,
-		claimID,
-		ngoUserID,
-		ActorNGO,
-		ClaimStatusCancelled,
-	)
+func (s *Service) CancelByNGO(ctx context.Context, claimID string, ngoUserID string) error {
+	return s.updateStatus(ctx, claimID, ngoUserID, ActorNGO, ClaimStatusCancelled)
 }
 
 // MarkPickedUp marks a claim as picked up by the NGO
-func (s *Service) MarkPickedUp(
-	ctx context.Context,
-	claimID string,
-	ngoUserID string,
-) error {
-	return s.updateStatus(
-		ctx,
-		claimID,
-		ngoUserID,
-		ActorNGO,
-		ClaimStatusPickedUp,
-	)
+func (s *Service) MarkPickedUp(ctx context.Context, claimID string, ngoUserID string) error {
+	return s.updateStatus(ctx, claimID, ngoUserID, ActorNGO, ClaimStatusPickedUp)
 }
 
 // MarkDelivered marks a claim as delivered by the NGO
-func (s *Service) MarkDelivered(
-	ctx context.Context,
-	claimID string,
-	ngoUserID string,
-) error {
-	return s.updateStatus(
-		ctx,
-		claimID,
-		ngoUserID,
-		ActorNGO,
-		ClaimStatusDelivered,
-	)
+func (s *Service) MarkDelivered(ctx context.Context, claimID string, ngoUserID string) error {
+	return s.updateStatus(ctx, claimID, ngoUserID, ActorNGO, ClaimStatusDelivered)
 }
 
 // updateStatus handles the shared state transition logic for claims
-func (s *Service) updateStatus(
-	ctx context.Context,
-	claimID string,
-	userID string,
-	actor ActorRole,
-	nextStatus ClaimStatus,
-) error {
-
-	tx, err := s.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	claim, err := s.repo.GetByIDForUpdate(
-		ctx,
-		tx,
-		claimID,
-	)
+func (s *Service) updateStatus(ctx context.Context, claimID string, userID string, actor ActorRole, nextStatus ClaimStatus) error {
+	claim, err := s.repo.GetByID(ctx, claimID)
 	if err != nil {
 		return err
 	}
@@ -233,26 +129,36 @@ func (s *Service) updateStatus(
 		return ErrInvalidState
 	}
 
-	if err := s.repo.UpdateStatus(
-		ctx,
-		tx,
-		claimID,
-		nextStatus,
-	); err != nil {
+	if err := s.repo.UpdateStatus(ctx, claimID, nextStatus); err != nil {
 		return err
 	}
 
-	return tx.Commit()
-}
-
-// isUniqueViolation checks if the error is a PostgreSQL unique constraint violation
-func isUniqueViolation(err error) bool {
-	if err == nil {
-		return false
+	// If claim is accepted, mark food as claimed
+	if nextStatus == ClaimStatusAccepted {
+		if err := s.foodClient.MarkFoodClaimed(ctx, claim.FoodListingID); err != nil {
+			return err
+		}
 	}
 
-	return strings.Contains(
-		strings.ToLower(err.Error()),
-		"duplicate key value",
-	)
+	return nil
+}
+
+// GetClaimByID retrieves a claim by ID
+func (s *Service) GetClaimByID(ctx context.Context, claimID string) (*Claim, error) {
+	return s.repo.GetByID(ctx, claimID)
+}
+
+// GetClaimsByNGO retrieves all claims for an NGO
+func (s *Service) GetClaimsByNGO(ctx context.Context, ngoUserID string) ([]Claim, error) {
+	return s.repo.GetByNGOUserID(ctx, ngoUserID)
+}
+
+// GetClaimsByDonor retrieves all claims for a donor
+func (s *Service) GetClaimsByDonor(ctx context.Context, donorUserID string) ([]Claim, error) {
+	return s.repo.GetByDonorUserID(ctx, donorUserID)
+}
+
+// GetClaimsByFood retrieves all claims for a food listing
+func (s *Service) GetClaimsByFood(ctx context.Context, foodListingID string) ([]Claim, error) {
+	return s.repo.GetByFoodID(ctx, foodListingID)
 }

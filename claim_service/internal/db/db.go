@@ -1,52 +1,34 @@
 package db
 
 import (
+	"context"
+	"fmt"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
-
-	"github.com/adityawaradkar/gratia/claim_service/internal/config"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const (
-	maxOpenConns    = 25
-	maxIdleConns    = 25
-	connMaxLifetime = 5 * time.Minute
-	connMaxIdleTime = 2 * time.Minute
-)
-
-// New creates and configures a PostgreSQL connection pool
-func New() (*sqlx.DB, error) {
-
-	db, err := sqlx.Connect(
-		"postgres",
-		config.AppConfig.DatabaseURL,
-	)
+// Connect initializes and returns a highly concurrent PostgreSQL connection pool
+func Connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
+	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse database configuration: %w", err)
 	}
 
-	db.SetMaxOpenConns(
-		maxOpenConns,
-	)
+	// Set connection pool settings for better performance
+	config.MaxConns = 25
+	config.MinConns = 5
+	config.MaxConnLifetime = 30 * time.Minute
+	config.MaxConnIdleTime = 5 * time.Minute
 
-	db.SetMaxIdleConns(
-		maxIdleConns,
-	)
-
-	db.SetConnMaxLifetime(
-		connMaxLifetime,
-	)
-
-	db.SetConnMaxIdleTime(
-		connMaxIdleTime,
-	)
-
-	if err := db.Ping(); err != nil {
-		_ = db.Close()
-		return nil, err
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	return db, nil
+	if err := pool.Ping(ctx); err != nil {
+		return nil, fmt.Errorf("database ping failed: %w", err)
+	}
+
+	return pool, nil
 }
