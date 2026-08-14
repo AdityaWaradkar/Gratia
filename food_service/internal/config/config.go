@@ -1,48 +1,54 @@
 package config
 
 import (
-    "log"
-    "os"
+	"log"
+	"os"
 
-    "github.com/joho/godotenv"
+	"github.com/joho/godotenv"
 )
 
 // Config holds food service configuration
 type Config struct {
-    Port           string
-    DatabaseURL    string
-    JWTSecret      string
-    UserServiceURL string
+	Port           string
+	DatabaseURL    string
+	JWTSecret      string
+	UserServiceURL string
+	Env            string
+	LogLevel       string
 }
 
-// AppConfig is the loaded configuration
-var AppConfig *Config
+// Load reads environment variables and returns a Config instance
+func Load() *Config {
+	_ = godotenv.Load()
 
-// Load reads environment variables into Config
-func Load() {
-    _ = godotenv.Load()
+	jwtSecret := mustEnv("JWT_SECRET")
+	if len(jwtSecret) < 32 {
+		log.Fatal("Fatal: JWT_SECRET must be at least 32 characters")
+	}
 
-    AppConfig = &Config{
-        Port:           getEnv("PORT", "8082"),
-        DatabaseURL:    mustEnv("DATABASE_URL"),
-        JWTSecret:      mustEnv("JWT_SECRET"),
-        UserServiceURL: getEnv("USER_SERVICE_URL", "http://localhost:8081"),
-    }
+	return &Config{
+		Port:           getEnv("PORT", "8082"),
+		DatabaseURL:    mustEnv("DATABASE_URL"),
+		JWTSecret:      jwtSecret,
+		UserServiceURL: getEnv("USER_SERVICE_URL", "http://user_service:8081"),
+		Env:            getEnv("ENV", "development"),
+		LogLevel:       getEnv("LOG_LEVEL", "info"),
+	}
 }
 
 // getEnv retrieves an environment variable with a default value
 func getEnv(key, defaultValue string) string {
-    if v := os.Getenv(key); v != "" {
-        return v
-    }
-    return defaultValue
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultValue
 }
 
 // mustEnv retrieves a required environment variable or exits with an error
 func mustEnv(key string) string {
-    v := os.Getenv(key)
-    if v == "" {
-        log.Fatalf("%s is required", key)
-    }
-    return v
+	v := os.Getenv(key)
+	if v == "" {
+		log.Fatalf("Fatal: %s environment variable is strictly required", key)
+	}
+	return v
 }

@@ -1,13 +1,38 @@
 package logger
 
 import (
-    "log"
-    "os"
+	"log/slog"
+	"os"
+	"strings"
 )
 
-// Init initializes application-wide logger
-func Init() {
-    log.SetOutput(os.Stdout)
-    log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-    log.Println("logger initialized")
+// New initializes and sets up a structured JSON logger for the service
+func New(serviceName string, logLevel string) *slog.Logger {
+	var level slog.Level
+
+	switch strings.ToLower(logLevel) {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	opts := &slog.HandlerOptions{
+		Level: level,
+	}
+
+	// Output logs as JSON objects for easy parsing by monitoring tools
+	handler := slog.NewJSONHandler(os.Stdout, opts)
+
+	// Automatically inject the service name into every single log entry
+	logger := slog.New(handler).With(slog.String("service", serviceName))
+
+	// Override the global default logger to catch standard library outputs
+	slog.SetDefault(logger)
+
+	return logger
 }

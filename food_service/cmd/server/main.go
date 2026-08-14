@@ -1,108 +1,116 @@
 package main
 
 import (
-    "context"
-    "errors"
-    "log"
-    "net/http"
-    "os"
-    "os/signal"
-    "syscall"
-    "time"
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-    "github.com/adityawaradkar/gratia/food_service/internal/config"
-    "github.com/adityawaradkar/gratia/food_service/internal/db"
-    "github.com/adityawaradkar/gratia/food_service/internal/food"
-    "github.com/adityawaradkar/gratia/food_service/internal/logger"
-    "github.com/adityawaradkar/gratia/food_service/internal/server"
+	"github.com/adityawaradkar/gratia/food_service/internal/config"
+	"github.com/adityawaradkar/gratia/food_service/internal/db"
+	"github.com/adityawaradkar/gratia/food_service/internal/food"
+	"github.com/adityawaradkar/gratia/food_service/internal/logger"
+	"github.com/adityawaradkar/gratia/food_service/internal/server"
 )
 
 func main() {
-    // Load configuration via dependency-friendly loading function
-    cfg := config.Load()
+	// Load configuration via dependency-friendly loading function
+	cfg := config.Load()
 
-    // Initialize application logger
-    logger.Init()
+	// Initialize structured JSON logger
+	log := logger.New("food_service", cfg.LogLevel)
 
-    // Connect to the database connection pool
-    pool := db.Connect(cfg.DatabaseURL)
-    defer pool.Close()
+	// Establish context for startup tasks
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-    // Initialize clean architectural layers
-    repo := food.NewRepository(pool)
-    userClient := food.NewUserClient(cfg.UserServiceURL)
-    service := food.NewService(repo, userClient)
+	// Connect to the PostgreSQL connection pool securely
+	database, err := db.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Error("failed to establish database connection", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer database.Close()
 
-    // Create a cancellable context to manage background routines lifecycle
-    workerCtx, cancelWorker := context.WithCancel(context.Background())
-    defer cancelWorker()
+	// Initialize clean architectural layers
+	repo := food.NewRepository(database)
+	userClient := food.NewUserClient(cfg.UserServiceURL)
+	service := food.NewService(repo, userClient)
 
-    // Start background worker for expiring listings asynchronously
-    go startExpiryWorker(workerCtx, service)
+	// Create a cancellable context to manage background routines lifecycle
+	workerCtx, cancelWorker := context.WithCancel(context.Background())
+	defer cancelWorker()
 
-    // Initialize HTTP handlers
-    handler := food.NewHandler(service)
+	// Start background worker for expiring listings asynchronously
+	go startExpiryWorker(workerCtx, service, log)
 
-    // Register routes, injecting the explicitly loaded JWT secret
-    router := server.RegisterRoutes(handler, cfg.JWTSecret)
+	// Initialize HTTP handlers
+	handler := food.NewHandler(service)
 
-    // Configure robust server parameters to mitigate slow-client attacks
-    srv := &http.Server{
-        Addr:              ":" + cfg.Port,
-        Handler:           router,
-        ReadHeaderTimeout: 5 * time.Second,
-        ReadTimeout:       15 * time.Second,
-        WriteTimeout:      15 * time.Second,
-        IdleTimeout:       60 * time.Second,
-    }
+	// Register routes, injecting the explicitly loaded JWT secret
+	router := server.RegisterRoutes(handler, cfg.JWTSecret)
 
-    // Start the HTTP server in a goroutine
-    go func() {
-        log.Printf("food_service started successfully on port %s", cfg.Port)
-        if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-            log.Fatalf("server failed unexpectedly: %v", err)
-        }
-    }()
+	// Configure robust server parameters to mitigate slow-client attacks
+	srv := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 
-    // Listen for OS interrupt signals for graceful shutdown execution
-    stop := make(chan os.Signal, 1)
-    signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-    <-stop
+	// Start the HTTP server in a goroutine
+	go func() {
+		log.Info("food service started successfully", slog.String("port", cfg.Port), slog.String("env", cfg.Env))
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("http server failed unexpectedly", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+	}()
 
-    log.Println("initiating graceful shutdown sequence...")
+	// Listen for OS interrupt signals for graceful shutdown execution
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
 
-    // 1. Signal background workers to halt processing immediately
-    cancelWorker()
+	log.Info("initiating graceful shutdown sequence...")
 
-    // 2. Allow active HTTP requests up to 10 seconds to finish before forcing termination
-    shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-    defer shutdownCancel()
+	// 1. Signal background workers to halt processing immediately
+	cancelWorker()
 
-    if err := srv.Shutdown(shutdownCtx); err != nil {
-        log.Printf("forced server shutdown encountered an error: %v", err)
-    }
+	// 2. Allow active HTTP requests up to 10 seconds to finish before forcing termination
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
 
-    log.Println("food_service stopped cleanly")
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Error("forced server shutdown encountered an error", slog.String("error", err.Error()))
+	}
+
+	log.Info("food service stopped cleanly")
 }
 
 // startExpiryWorker runs a background worker to expire food listings periodically
-func startExpiryWorker(ctx context.Context, service *food.Service) {
-    ticker := time.NewTicker(1 * time.Minute)
-    defer ticker.Stop()
+func startExpiryWorker(ctx context.Context, service *food.Service, log *slog.Logger) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
 
-    for {
-        select {
-        case <-ctx.Done(): // Graceful termination signal received
-            log.Println("expiry worker shutting down")
-            return
-            
-        case <-ticker.C:
-            // Use a bounded context for the actual database operation
-            expireCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-            if err := service.ExpireListings(expireCtx); err != nil {
-                log.Printf("expiry worker error: %v", err)
-            }
-            cancel() // Free resources immediately after the check finishes
-        }
-    }
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("expiry worker shutting down")
+			return
+
+		case <-ticker.C:
+			expireCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			if err := service.ExpireListings(expireCtx); err != nil {
+				log.Error("expiry worker error", slog.String("error", err.Error()))
+			}
+			cancel()
+		}
+	}
 }
