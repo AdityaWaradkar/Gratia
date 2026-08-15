@@ -748,4 +748,4 @@ Built to address food waste and food insecurity. Thanks to all contributors and 
 
 - Issues: GitHub Issues
 - Discussions: GitHub Discussions
-- Email: your-email@example.com
+- Email: adityawaradkar2004@gmail.com
